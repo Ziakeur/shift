@@ -41,7 +41,8 @@ for (let debut = DEBUT, s = 0; debut <= FIN; debut = ajouterJours(debut, 7), s++
     if (jour === 6 && !samedi) continue;
     if (FERIES.includes(date)) continue;
     if (longue && jour === 5) continue;
-    if (jour >= 1 && jour <= 5 && hasard(s * 7 + k) < 0.06) continue; // journée manquée (pluie, congé)
+    const recent = date >= ajouterJours(FIN, -10);                     // les derniers jours sont toujours remplis, aujourd'hui compris
+    if (!recent && jour >= 1 && jour <= 5 && hasard(s * 7 + k) < 0.06) continue; // journée manquée (pluie, congé)
     const fin = jour === 6 ? '12:00' : longue ? '17:30' : hasard(s * 7 + k + 99) < 0.12 ? '16:30' : '15:30';
     jours.push({ date, debut: '07:00', fin, pauseMin: jour === 6 ? 0 : 30, chantierId, note: '' });
   }

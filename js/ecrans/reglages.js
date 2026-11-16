@@ -138,6 +138,10 @@ export function rendreReglages(racine, _param, naviguer) {
         <option value="clair" ${r.theme === 'clair' ? 'selected' : ''}>Clair (plein soleil)</option>
         <option value="auto" ${r.theme === 'auto' ? 'selected' : ''}>Comme le téléphone</option>
       </select></label>
+      <label class="champ"><span>À l'ouverture, afficher</span><select id="ecran-ouverture">
+        <option value="accueil" ${r.ecranOuverture !== 'jour' ? 'selected' : ''}>L'accueil (récapitulatif et ligne du temps)</option>
+        <option value="jour" ${r.ecranOuverture === 'jour' ? 'selected' : ''}>La saisie du jour (un appui de moins)</option>
+      </select></label>
       <label class="champ"><span>La semaine commence le</span><select id="debut-semaine">
         <option value="0" ${r.debutSemaine === 0 ? 'selected' : ''}>Dimanche (semaine de paie de la construction)</option>
         <option value="1" ${r.debutSemaine === 1 ? 'selected' : ''}>Lundi</option>
@@ -406,6 +410,9 @@ export function rendreReglages(racine, _param, naviguer) {
     if (t.id === 'theme') {
       await majReglages((reg) => { reg.theme = t.value; });
       document.dispatchEvent(new CustomEvent('reglages-changes'));
+    } else if (t.id === 'ecran-ouverture') {
+      await majReglages((reg) => { reg.ecranOuverture = t.value; });
+      toast('Écran d\'ouverture modifié');
     } else if (t.id === 'debut-semaine') {
       await majReglages((reg) => { reg.debutSemaine = Number(t.value); });
       toast('Découpage des semaines modifié');

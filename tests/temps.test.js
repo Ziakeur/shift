@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   hhmmEnMinutes, minutesEnHhmm, formatDuree, dureeQuart, debutDeSemaine, joursDeLaSemaine,
-  ajouterJours, jourSemaine, formatDate, aujourdhui,
+  ajouterJours, jourSemaine, formatDate, nomMois, aujourdhui,
 } from '../js/temps.js';
 
 test('conversion des heures', () => {
@@ -78,6 +78,8 @@ test('semaines', () => {
 test('affichage des dates en français', () => {
   assert.equal(formatDate('2026-11-16'), 'lundi 16 novembre');
   assert.equal(formatDate('2027-03-01', { annee: true, jour: false }), '1er mars 2027');
+  assert.equal(nomMois('2026-11'), 'novembre');
+  assert.equal(nomMois('2027-01-03', true), 'janv.');
 });
 
 test('aujourd\'hui suit le fuseau du Québec, pas celui de l\'appareil', () => {

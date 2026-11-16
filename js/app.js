@@ -3,6 +3,7 @@
 import { etat, charger, debutSemaine, sauvegardeEnRetard, joursDepuisSauvegarde, aujourdhui } from './etat.js';
 import { APP } from './config.js';
 import { esc, toast } from './ui.js';
+import { rendreAccueil } from './ecrans/accueil.js';
 import { rendreJour } from './ecrans/jour.js';
 import { rendreSemaine } from './ecrans/semaine.js';
 import { rendrePaie } from './ecrans/paie.js';
@@ -10,6 +11,7 @@ import { rendreCarnet } from './ecrans/carnet.js';
 import { rendreReglages } from './ecrans/reglages.js';
 
 const ECRANS = {
+  accueil: { rendre: rendreAccueil },
   jour: { rendre: rendreJour, defaut: () => aujourdhui() },
   semaine: { rendre: rendreSemaine, defaut: () => debutSemaine(aujourdhui()), normaliser: (d) => debutSemaine(d) },
   paie: { rendre: rendrePaie, defaut: () => debutSemaine(aujourdhui()), normaliser: (d) => debutSemaine(d) },
@@ -21,9 +23,11 @@ const racine = document.getElementById('ecran');
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 let dernier = { ecran: null, param: null };
 
+// Sans adresse précise, on ouvre l'écran choisi dans les réglages (Accueil ou Jour).
 function lireRoute() {
-  const [, ecran = 'jour', param] = location.hash.split('/');
-  return { ecran: ECRANS[ecran] ? ecran : 'jour', param: DATE.test(param ?? '') ? param : null };
+  const [, ecran, param] = location.hash.split('/');
+  const ouverture = etat.reglages?.ecranOuverture === 'jour' ? 'jour' : 'accueil';
+  return { ecran: ECRANS[ecran] ? ecran : ouverture, param: DATE.test(param ?? '') ? param : null };
 }
 
 // Va à un écran. Si on y est déjà, le redessine.

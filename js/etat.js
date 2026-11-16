@@ -24,6 +24,7 @@ export function reglagesParDefaut() {
   return {
     debutSemaine: 0,
     theme: 'sombre',
+    ecranOuverture: 'accueil',
     profils: [{
       id: nouvelId(), dateEffet: '2025-01-01', employeur: '', secteur: 'ic', isole: false, gite: false,
       echelon: 'app1', tauxPerso: null, regles: null, vacancesPct: VACANCES_PCT,

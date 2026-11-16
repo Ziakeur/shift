@@ -1,9 +1,9 @@
 // Écran « Semaine » : totaux par catégorie de temps et détail par jour.
 
-import { etat, semaine, debutSemaine, enregistrerJour, chantier, dernierJourAvant, aujourdhui } from '../etat.js';
+import { etat, semaine, debutSemaine, enregistrerJour, supprimerJour, chantier, dernierJourAvant, aujourdhui } from '../etat.js';
 import { ajouterJours, formatDate, formatDuree, jourSemaine, nomJour } from '../temps.js';
 import { nomMultiplicateur } from '../calcul.js';
-import { esc, toast, choisir } from '../ui.js';
+import { esc, toast, choisir, confirmer } from '../ui.js';
 
 export function titreSemaine(debut) {
   const fin = ajouterJours(debut, 6);
@@ -54,15 +54,18 @@ export function rendreSemaine(racine, debut, naviguer) {
         const ch = chantier(j.chantierId);
         const quart = j.saisie?.debut && j.saisie?.fin ? `${j.saisie.debut} à ${j.saisie.fin}` : (j.saisie ? 'Sans heures' : '');
         return `
-        <button class="rangee ${j.date === auj ? 'auj' : ''} ${j.minutes ? '' : 'vide'}" data-jour="${j.date}">
-          <span class="rangee-jour"><strong>${esc(nomJour(j.date, true))}</strong><small>${Number(j.date.slice(8))}</small></span>
-          <span class="rangee-corps">
-            <span>${esc(quart || '—')}${j.ferie && j.saisie ? ' · férié' : ''}</span>
-            <small>${esc([ch?.nom, j.saisie?.note].filter(Boolean).join(' · '))}</small>
-            ${j.tranches.some((t) => t.mult !== 1) ? `<span class="etiquettes">${j.tranches.map((t) => `<span class="etiquette ${classeMult(t.mult)}">${esc(nomMultiplicateur(t.mult))} ${esc(formatDuree(t.minutes))}</span>`).join('')}</span>` : ''}
-          </span>
-          <span class="rangee-total">${j.minutes ? esc(formatDuree(j.minutes)) : ''}</span>
-        </button>`;
+        <div class="rangee-groupe">
+          <button class="rangee ${j.date === auj ? 'auj' : ''} ${j.minutes ? '' : 'vide'}" data-jour="${j.date}">
+            <span class="rangee-jour"><strong>${esc(nomJour(j.date, true))}</strong><small>${Number(j.date.slice(8))}</small></span>
+            <span class="rangee-corps">
+              <span>${esc(quart || '—')}${j.ferie && j.saisie ? ' · férié' : ''}</span>
+              <small>${esc([ch?.nom, j.saisie?.note].filter(Boolean).join(' · '))}</small>
+              ${j.tranches.some((t) => t.mult !== 1) ? `<span class="etiquettes">${j.tranches.map((t) => `<span class="etiquette ${classeMult(t.mult)}">${esc(nomMultiplicateur(t.mult))} ${esc(formatDuree(t.minutes))}</span>`).join('')}</span>` : ''}
+            </span>
+            <span class="rangee-total">${j.minutes ? esc(formatDuree(j.minutes)) : ''}</span>
+          </button>
+          ${j.saisie ? `<button class="btn-suppr" data-effacer="${j.date}" aria-label="Effacer ${esc(formatDate(j.date))}">✕</button>` : ''}
+        </div>`;
       }).join('')}
     </section>
     <button class="btn btn-large" data-act="remplir">Remplir les jours vides avec un modèle</button>
@@ -76,6 +79,14 @@ export function rendreSemaine(racine, debut, naviguer) {
     if (b.dataset.act === 'prec') return naviguer('semaine', ajouterJours(debut, -7));
     if (b.dataset.act === 'suiv') return naviguer('semaine', ajouterJours(debut, 7));
     if (b.dataset.act === 'courante') return naviguer('semaine', courante);
+    if (b.dataset.effacer) {
+      const d = b.dataset.effacer;
+      const ok = await confirmer({ titre: 'Effacer cette journée ?', texte: `Les heures, le chantier et la note du ${formatDate(d)} seront supprimés.`, oui: 'Effacer la journée', danger: true });
+      if (!ok) return;
+      await supprimerJour(d);
+      toast('Journée effacée');
+      return naviguer('semaine', debut);
+    }
     if (b.dataset.jour) return naviguer('jour', b.dataset.jour);
     if (b.dataset.act === 'remplir') {
       const modeles = etat.reglages.modeles.filter((m) => m.jours?.length);

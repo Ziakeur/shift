@@ -30,9 +30,10 @@ L'utilisateur n'est pas développeur : répondre en français, court et direct, 
 | `js/grilles.js` | Grilles de taux sourcées, préréglages d'heures supplémentaires, fériés, règles du carnet |
 | `js/calcul.js` | Répartition simple / majoré, paie de la semaine, primes (pur) |
 | `js/carnet.js` | Périodes d'apprentissage, estimation, période du rapport mensuel (pur) |
+| `js/recap.js` | Totaux par semaine, mois et année, jalons et ligne du temps de l'accueil (pur) |
 | `js/db.js`, `js/etat.js` | IndexedDB, état en mémoire, export / import |
 | `js/ui.js` | Formats, fenêtres de saisie, messages |
-| `js/ecrans/*.js` | Un fichier par écran : jour, semaine, paie, carnet, réglages |
+| `js/ecrans/*.js` | Un fichier par écran : accueil, jour, semaine, paie, carnet, réglages |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Mode hors ligne et installation |
 | `tests/*.test.js` | Tests automatiques des calculs |
 | `tools/serve.mjs`, `tools/icons.mjs` | Serveur local, génération des icônes |
@@ -55,7 +56,7 @@ node --test
 ```
 Tout doit être vert avant un commit. Toute nouvelle logique de calcul vient avec son test dans `tests/`.
 
-Les tests couvrent les calculs (durées, minuit, changement d'heure, seuils d'heures supplémentaires par convention, changement de taux en cours de semaine, primes, carnet). L'interface, l'import/export et le mode hors ligne se vérifient à la main dans Chrome.
+Les tests couvrent les calculs (durées, minuit, changement d'heure, seuils d'heures supplémentaires par convention, changement de taux en cours de semaine, primes, carnet, récapitulatif par période, jalons et ligne du temps). L'interface, l'import/export et le mode hors ligne se vérifient à la main dans Chrome.
 
 ## Mettre à jour une grille de taux
 Deux façons.
@@ -103,7 +104,11 @@ node tools/icons.mjs
 - Heures supplémentaires : heures au-delà du seuil par jour ou par semaine (lundi au vendredi), samedi, dimanche, fériés. Le choix « férié » fait sur une journée l'emporte sur la liste des fériés.
 - L'indemnité de vacances (13 %) est affichée à part : l'employeur la verse à la CCQ, elle n'est pas dans le net de la paie.
 - Carnet : les crédits de formation (DEP) restent en réserve tant que l'apprenti ne les utilise pas. C'est lui qui choisit si et quand. Il inscrit les heures « déjà utilisées » ; le reste raccourcit la fin de l'apprentissage. Ne jamais appliquer les crédits d'office.
-- Saisie rapide : rien de ce qui dure (employeur, convention, échelon, taux) ne se ressaisit chaque jour. Le chantier de la veille est repris, les chantiers récents et les modèles d'horaire se choisissent en un appui, et l'écran Jour permet de basculer vers un profil déjà utilisé.
+- Saisie rapide : rien de ce qui dure (employeur, convention, échelon, taux) ne se ressaisit chaque jour. Le chantier de la veille est repris, les chantiers récents et les modèles d'horaire se choisissent en un appui, et l'écran Jour permet de basculer vers un profil déjà utilisé (« Changer » crée un profil daté du jour affiché, le passé ne bouge pas).
+- Effacer : toujours une confirmation, jamais de suppression en un seul appui (heures d'une journée, journée entière depuis Jour ou Semaine).
+- Accueil : écran d'ouverture par défaut (réglable : Accueil ou Jour, dans Réglages, Affichage). Récapitulatif par semaine, mois, année : heures et brut estimé comptés jour par jour (une semaine à cheval sur deux mois est partagée, les primes suivent les heures). Le net n'est **jamais estimé** : somme des nets saisis depuis les talons, avec le nombre de semaines couvertes ; un talon compte dans le mois où la semaine se termine.
+- Ligne du temps (accueil) : un ruban à mesurer, une graduation par semaine, la plus récente en haut. Jalons factuels seulement : première journée, changements de profil à leur date d'effet, premier jour sur un chantier, changement de taux de la grille, paliers de 500 h saisies, dernière sauvegarde. Pas de jalon « passage de période » : la date où des crédits sont utilisés n'est pas connue de l'app, le changement d'échelon vient du profil.
+- Couleurs des barres d'heures (`--s1`, `--s15`, `--s2` dans `css/style.css`) : trio vérifié pour les daltoniens sur fond sombre et clair. Ne pas les remplacer par le jaune et l'orange des étiquettes, trop proches l'un de l'autre.
 
 ## Limites connues, non couvertes
 - Réserve d'heures du résidentiel (art. 19.04), taux de nuit, industrie lourde, primes d'équipe.

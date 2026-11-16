@@ -67,6 +67,13 @@ export function formatDate(dateISO, { annee = false, jour = true } = {}) {
   return jour ? `${nomJour(dateISO)} ${base}` : base;
 }
 
+const MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juill.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+
+// '2026-11' ou '2026-11-15' -> « novembre » ; court : « nov. »
+export function nomMois(dateISO, court = false) {
+  return (court ? MOIS_COURTS : MOIS)[Number(dateISO.slice(5, 7)) - 1];
+}
+
 // Premier jour de la semaine qui contient la date. debutSemaine : 0 = dimanche, 1 = lundi.
 export function debutDeSemaine(dateISO, debutSemaine = 0) {
   const recul = (jourSemaine(dateISO) - debutSemaine + 7) % 7;

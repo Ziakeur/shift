@@ -36,7 +36,7 @@ export function reglagesParDefaut() {
     primes: [],
     feries: [...FERIES],
     grillesPerso: [],
-    carnet: { heuresDepart: null, dateDepart: null, credits: null, creditsMode: 'fin', facteurSupp: 1 },
+    carnet: { heuresDepart: null, dateDepart: null, credits: null, creditsUtilises: 0, facteurSupp: 1 },
     declarations: [],
     sauvegarde: { dernierExport: null, rappelJours: 7 },
   };

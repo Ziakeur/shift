@@ -10,37 +10,51 @@ export function heuresCarnetSemaine(semaine, facteurSupp = 1) {
 }
 
 // État du carnet.
-//   heuresDepart : heures travaillées inscrites au dossier CCQ (sans les crédits)
-//   heuresApp    : heures comptées par l'app depuis la date du solde
-//   credits      : crédits de formation (ex. 2 025 pour le DEP)
-//   creditsMode  : 'fin'     = crédits en réserve à la dernière période (défaut CCQ)
-//                  'devance' = crédits utilisés tout de suite (sur demande à la CCQ)
-export function etatCarnet({ heuresDepart = 0, heuresApp = 0, credits = 0, creditsMode = 'fin', parPeriode = 2000, periodes = 3 }) {
+//   heuresDepart    : heures travaillées inscrites au dossier CCQ (sans les crédits)
+//   heuresApp       : heures comptées par l'app depuis la date du solde
+//   credits         : crédits de formation obtenus (ex. 2 025 pour le DEP)
+//   creditsUtilises : part des crédits déjà versée à une période, à la demande de l'apprenti
+// Les crédits non utilisés restent en réserve : c'est l'apprenti qui choisit si et quand il les utilise.
+// Par défaut la CCQ les garde pour la dernière période ; la réserve raccourcit donc la fin de l'apprentissage.
+export function etatCarnet({ heuresDepart = 0, heuresApp = 0, credits = 0, creditsUtilises = 0, parPeriode = 2000, periodes = 3 }) {
   const total = parPeriode * periodes;
   const travaillees = (Number(heuresDepart) || 0) + (Number(heuresApp) || 0);
   const cr = Math.max(0, Number(credits) || 0);
-  const aTravailler = Math.max(0, total - cr);
+  const utilises = Math.min(cr, Math.max(0, Number(creditsUtilises) || 0));
+  const reserve = cr - utilises;
 
-  const progression = creditsMode === 'devance' ? travaillees + cr : travaillees;
-  const finA = creditsMode === 'devance' ? total : aTravailler;
+  const periodeDe = (h) => Math.min(periodes, Math.floor(Math.max(0, h) / parPeriode) + 1);
+  const progression = travaillees + utilises;
+  const finA = total - reserve;
   const termine = progression >= finA;
-  const periode = Math.min(periodes, Math.floor(Math.min(progression, Math.max(0, finA - 0.0001)) / parPeriode) + 1);
-  const seuilPeriode = periode * parPeriode;
-  const prochainSeuil = Math.min(seuilPeriode, finA);
+  const periode = periodeDe(Math.min(progression, Math.max(0, finA - 0.0001)));
+  const prochainSeuil = Math.min(periode * parPeriode, finA);
   const prochain = termine ? 'termine' : prochainSeuil >= finA ? 'fin' : 'periode';
+  const restant = Math.max(0, prochainSeuil - progression);
+
+  // Ce que la réserve changerait si elle était utilisée aujourd'hui.
+  const avecReserve = progression + reserve;
+  const simulation = reserve > 0 && !termine ? {
+    periode: periodeDe(Math.min(avecReserve, total - 0.0001)),
+    // Heures de réserve qu'il suffirait d'utiliser pour passer tout de suite à la période suivante.
+    pourPasser: prochain === 'periode' && reserve >= restant ? restant : null,
+  } : null;
 
   return {
     total,
     credits: cr,
-    creditsMode,
+    creditsUtilises: utilises,
+    reserve,
     travaillees,
     progression,
     periode,
     debutPeriode: (periode - 1) * parPeriode,
     prochainSeuil,
     prochain,
-    restant: Math.max(0, prochainSeuil - progression),
-    restantFin: Math.max(0, aTravailler - travaillees),
+    restant,
+    restantFin: Math.max(0, finA - progression),
+    restantFinSansReserve: Math.max(0, total - progression),
+    simulation,
     termine,
   };
 }

@@ -203,7 +203,7 @@ export const CARNET = {
   sources: [
     { texte: 'Charpentier-menuisier : 3 périodes de 2 000 h (6 000 h).', url: 'https://www.ccq.org/-/media/Project/Ccq/Ccq-Website/PDF/Attraction/3647_CCQ_Fiche_metier_Charpentier-menuisier_2025.pdf' },
     { texte: 'DEP en charpenterie-menuiserie : 2 025 h de crédits, plafond de 4 200 h.', url: 'https://www.ccq.org/annexes/credits-heures' },
-    { texte: 'Un crédit de formation est « automatiquement placé en réserve à la dernière période » du carnet ; pour le devancer, appeler la CCQ au 1 888 842-8282. La FAQ ne nomme pas le DEP : à confirmer dans ton dossier.', url: 'https://fiersetcompetents.ccq.org/fr-ca/faq' },
+    { texte: 'Les crédits restent en réserve tant que tu ne les utilises pas : tu choisis si et quand. Sans demande de ta part, un crédit est « automatiquement placé en réserve à la dernière période » du carnet ; pour en utiliser plus tôt, appeler la CCQ au 1 888 842-8282.', url: 'https://fiersetcompetents.ccq.org/fr-ca/faq' },
     { texte: 'Les heures du carnet sont celles que l\'employeur déclare à la CCQ ; un avis est posté à 1 600 h ; au changement de période, l\'employeur doit ajuster le taux, rétroactivement s\'il a tardé.', url: 'https://www.ccq.org/fr-CA/qualification-acces-industrie/certificat-competence/apprenti' },
   ],
   aVerifier: 'Aucune source lue ne dit si une heure supplémentaire compte pour plus d\'une heure au carnet. L\'app compte 1 h travaillée = 1 h (réglable). À valider : comparer une semaine avec heures supplémentaires à ton relevé CCQ, ou appeler la CCQ.',

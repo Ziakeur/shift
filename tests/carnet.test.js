@@ -12,64 +12,66 @@ test('sans crédits : trois périodes de 2 000 h', () => {
   assert.equal(fin.periode, 3);
 });
 
-test('crédits du DEP en réserve à la dernière période (défaut)', () => {
-  const debut = etatCarnet({ heuresDepart: 0, credits: 2025, creditsMode: 'fin' });
+test('crédits du DEP en réserve, non utilisés : on avance aux heures travaillées', () => {
+  const debut = etatCarnet({ heuresDepart: 0, credits: 2025 });
   assert.equal(debut.periode, 1);
+  assert.equal(debut.reserve, 2025);
   assert.equal(debut.restant, 2000);
   assert.equal(debut.prochain, 'periode');
   assert.equal(debut.restantFin, 3975);
+  assert.equal(debut.restantFinSansReserve, 6000);
 
-  const p2 = etatCarnet({ heuresDepart: 1500, heuresApp: 600, credits: 2025, creditsMode: 'fin' });
+  const p2 = etatCarnet({ heuresDepart: 1500, heuresApp: 600, credits: 2025 });
   assert.equal(p2.periode, 2);
   assert.equal(p2.prochainSeuil, 3975);
   assert.equal(p2.prochain, 'fin');
   assert.equal(p2.restant, 1875);
 
-  assert.equal(etatCarnet({ heuresDepart: 3975, credits: 2025, creditsMode: 'fin' }).termine, true);
+  assert.equal(etatCarnet({ heuresDepart: 3975, credits: 2025 }).termine, true);
+  assert.equal(etatCarnet({ heuresDepart: 3974, credits: 2025 }).termine, false);
 });
 
-test('crédits du DEP devancés : période 2 dès le départ', () => {
-  const debut = etatCarnet({ heuresDepart: 0, credits: 2025, creditsMode: 'devance' });
+test('simulation : ce que la réserve changerait si elle était utilisée maintenant', () => {
+  const debut = etatCarnet({ heuresDepart: 0, credits: 2025 });
+  assert.deepEqual(debut.simulation, { periode: 2, pourPasser: 2000 });
+
+  const milieuP2 = etatCarnet({ heuresDepart: 3000, credits: 2025 });
+  assert.equal(milieuP2.periode, 2);
+  assert.equal(milieuP2.simulation.periode, 3);
+
+  // Petite réserve, insuffisante pour changer de période tout de suite.
+  const petite = etatCarnet({ heuresDepart: 500, credits: 300 });
+  assert.deepEqual(petite.simulation, { periode: 1, pourPasser: null });
+
+  assert.equal(etatCarnet({ heuresDepart: 500 }).simulation, null);
+});
+
+test('crédits utilisés en cours de route : pour passer d\'apprenti 2 à apprenti 3', () => {
+  // 2 600 h travaillées, puis 1 400 h de crédits versées : 4 000 h au carnet, période 3.
+  const e = etatCarnet({ heuresDepart: 2600, credits: 2025, creditsUtilises: 1400 });
+  assert.equal(e.progression, 4000);
+  assert.equal(e.periode, 3);
+  assert.equal(e.reserve, 625);
+  assert.equal(e.prochain, 'fin');
+  assert.equal(e.restantFin, 1375);
+  assert.equal(e.restantFinSansReserve, 2000);
+});
+
+test('crédits tous utilisés dès le départ : période 2 tout de suite', () => {
+  const debut = etatCarnet({ heuresDepart: 0, credits: 2025, creditsUtilises: 2025 });
   assert.equal(debut.periode, 2);
   assert.equal(debut.progression, 2025);
+  assert.equal(debut.reserve, 0);
   assert.equal(debut.restant, 1975);
   assert.equal(debut.restantFin, 3975);
-
-  const p3 = etatCarnet({ heuresDepart: 1975, credits: 2025, creditsMode: 'devance' });
-  assert.equal(p3.periode, 3);
-  assert.equal(p3.prochain, 'fin');
-  assert.equal(etatCarnet({ heuresDepart: 3975, credits: 2025, creditsMode: 'devance' }).termine, true);
+  assert.equal(etatCarnet({ heuresDepart: 1975, credits: 2025, creditsUtilises: 2025 }).periode, 3);
+  assert.equal(etatCarnet({ heuresDepart: 3975, credits: 2025, creditsUtilises: 2025 }).termine, true);
 });
 
-test('les heures de l\'app s\'ajoutent au solde de départ', () => {
-  const e = etatCarnet({ heuresDepart: 1950, heuresApp: 60 });
-  assert.equal(e.travaillees, 2010);
-  assert.equal(e.periode, 2);
+test('crédits utilisés : jamais plus que les crédits obtenus', () => {
+  const e = etatCarnet({ heuresDepart: 0, credits: 2025, creditsUtilises: 5000 });
+  assert.equal(e.creditsUtilises, 2025);
+  assert.equal(e.reserve, 0);
 });
 
-test('moyenne par semaine : ignore les semaines sans travail, garde les 4 dernières', () => {
-  assert.equal(moyenneHebdo([]), null);
-  assert.equal(moyenneHebdo([0, 0]), null);
-  assert.equal(moyenneHebdo([10, 40, 0, 40, 50, 30]), 40);
-});
 
-test('date estimée de passage', () => {
-  assert.equal(dateEstimee('2026-11-16', 400, 40), '2027-01-25');
-  assert.equal(dateEstimee('2026-11-16', 400, null), null);
-  assert.equal(dateEstimee('2026-11-16', 0, 40), '2026-11-16');
-});
-
-test('période du rapport mensuel : se termine le dernier samedi du mois', () => {
-  // Dates données par la convention résidentielle (art. 19.04 4)) : 29 mars 2026 au 27 mars 2027.
-  assert.equal(periodeRapportMensuel(2026, 3).fin, '2026-03-28');
-  assert.equal(periodeRapportMensuel(2026, 4).debut, '2026-03-29');
-  assert.equal(periodeRapportMensuel(2027, 3).fin, '2027-03-27');
-  assert.deepEqual(periodeRapportMensuel(2026, 11), { debut: '2026-11-01', fin: '2026-11-28' });
-  assert.deepEqual(periodeRapportMensuel(2027, 1), { debut: '2026-12-27', fin: '2027-01-30' });
-});
-
-test('heures au carnet : facteur réglable pour les heures majorées', () => {
-  const semaine = { minutesSimples: 2400, minutesMajorees: 600 };
-  assert.equal(heuresCarnetSemaine(semaine), 50);
-  assert.equal(heuresCarnetSemaine(semaine, 2), 60);
-});

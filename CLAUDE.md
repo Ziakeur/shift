@@ -102,7 +102,8 @@ node tools/icons.mjs
 - Le fuseau est `America/Toronto` : une nuit de changement d'heure dure 1 h de moins ou de plus.
 - Heures supplémentaires : heures au-delà du seuil par jour ou par semaine (lundi au vendredi), samedi, dimanche, fériés. Le choix « férié » fait sur une journée l'emporte sur la liste des fériés.
 - L'indemnité de vacances (13 %) est affichée à part : l'employeur la verse à la CCQ, elle n'est pas dans le net de la paie.
-- Carnet : les crédits de formation sont « en réserve à la dernière période » par défaut, ou « devancés » au choix.
+- Carnet : les crédits de formation (DEP) restent en réserve tant que l'apprenti ne les utilise pas. C'est lui qui choisit si et quand. Il inscrit les heures « déjà utilisées » ; le reste raccourcit la fin de l'apprentissage. Ne jamais appliquer les crédits d'office.
+- Saisie rapide : rien de ce qui dure (employeur, convention, échelon, taux) ne se ressaisit chaque jour. Le chantier de la veille est repris, les chantiers récents et les modèles d'horaire se choisissent en un appui, et l'écran Jour permet de basculer vers un profil déjà utilisé.
 
 ## Limites connues, non couvertes
 - Réserve d'heures du résidentiel (art. 19.04), taux de nuit, industrie lourde, primes d'équipe.

@@ -38,7 +38,7 @@ export function rendreCarnet(racine, _param, naviguer) {
   // Heures de l'app comptées après la date du solde lu au dossier.
   const depuis = c.dateDepart ? [...parJour].filter(([d]) => d > c.dateDepart) : [...parJour];
   const heuresApp = depuis.reduce((s, [, x]) => s + x, 0);
-  const e = etatCarnet({ heuresDepart: c.heuresDepart ?? 0, heuresApp, credits: c.credits ?? 0, creditsMode: c.creditsMode, parPeriode: CARNET.parPeriode, periodes: CARNET.periodes });
+  const e = etatCarnet({ heuresDepart: c.heuresDepart ?? 0, heuresApp, credits: c.credits ?? 0, creditsUtilises: c.creditsUtilises ?? 0, parPeriode: CARNET.parPeriode, periodes: CARNET.periodes });
 
   const courante = debutSemaine(auj);
   const completes = semaines.filter((s) => s.debut < courante).map((s) => somme(heuresParJour([s], c.facteurSupp || 1)));
@@ -53,7 +53,7 @@ export function rendreCarnet(racine, _param, naviguer) {
   const prochainTexte = e.termine
     ? 'Heures d\'apprentissage complétées selon ce décompte.'
     : e.prochain === 'fin'
-      ? `Reste ${h(e.restant)} avant la fin de l'apprentissage`
+      ? `Reste ${h(e.restant)} avant la fin de l'apprentissage${e.reserve ? `, en comptant ta réserve de ${h(e.reserve)}` : ''}`
       : `Reste ${h(e.restant)} avant la période ${e.periode + 1}`;
 
   const declarations = [...etat.reglages.declarations].sort((a, b) => b.fin.localeCompare(a.fin));
@@ -73,6 +73,17 @@ export function rendreCarnet(racine, _param, naviguer) {
         : 'Date estimée : pas encore assez de semaines complètes saisies.'}</p>` : ''}
     </section>
 
+    ${e.simulation ? `<section class="carte">
+      <h2>Ma réserve de crédits : ${esc(h(e.reserve))}</h2>
+      <p class="aide">Non utilisée pour l'instant : tu avances seulement avec tes heures travaillées. C'est toi qui choisis si et quand l'utiliser.</p>
+      <ul class="sources">
+        ${e.simulation.pourPasser !== null ? `<li>Passer à la période ${e.periode + 1} dès aujourd'hui demanderait ${esc(h(e.simulation.pourPasser))} de ta réserve.</li>` : ''}
+        <li>Si tu utilisais toute ta réserve aujourd'hui, tu serais en période ${e.simulation.periode}${e.simulation.periode === e.periode ? ' (pas de changement de période)' : ''}.</li>
+        <li>Gardée jusqu'au bout, elle raccourcit la fin de l'apprentissage : il te reste ${esc(h(e.restantFin))} à travailler, au lieu de ${esc(h(e.restantFinSansReserve))} sans elle.</li>
+      </ul>
+      <p class="aide">Pour utiliser des crédits, appelle la CCQ (1 888 842-8282), puis inscris les heures versées dans « Modifier mon dossier ». Une réserve plus grande qu'une période peut te faire sauter un échelon : demande à la CCQ si tu peux n'en utiliser qu'une partie.</p>
+    </section>` : ''}
+
     ${incoherent ? `<p class="alerte">Ton profil de paie est réglé sur « ${esc(ECHELONS[echelonProfil])} », mais ce décompte te place en période ${e.periode}. Vérifie ton dossier CCQ, puis ajuste le profil ou le carnet. Au changement de période, l'employeur doit ajuster ton taux, rétroactivement s'il a tardé.</p>` : ''}
 
     <section class="carte">
@@ -81,8 +92,10 @@ export function rendreCarnet(racine, _param, naviguer) {
         <tr><td>Solde lu au dossier CCQ<small>${c.dateDepart ? `en date du ${esc(formatDate(c.dateDepart, { jour: false, annee: true }))}` : 'date non précisée'}</small></td><td class="montant">${configure ? esc(h(c.heuresDepart)) : '—'}</td></tr>
         <tr><td>Heures saisies dans l'app${c.dateDepart ? ' depuis' : ''}</td><td class="montant">${esc(h(heuresApp))}</td></tr>
         <tr class="total"><td>Heures travaillées cumulées</td><td class="montant">${esc(h(e.travaillees))}</td></tr>
-        <tr><td>Crédits de formation<small>${e.creditsMode === 'devance' ? 'utilisés dès maintenant (devancés)' : 'en réserve à la dernière période'}</small></td><td class="montant">${esc(h(e.credits))}</td></tr>
-        <tr><td>Reste à travailler avant la fin</td><td class="montant">${esc(h(e.restantFin))}</td></tr>
+        ${e.creditsUtilises ? `<tr><td>Crédits de formation utilisés<small>versés au carnet à ta demande</small></td><td class="montant">${esc(h(e.creditsUtilises))}</td></tr>
+        <tr class="total"><td>Heures au carnet</td><td class="montant">${esc(h(e.progression))}</td></tr>` : ''}
+        <tr><td>Crédits en réserve<small>pas encore utilisés</small></td><td class="montant">${esc(h(e.reserve))}</td></tr>
+        <tr><td>Reste à travailler avant la fin<small>${e.reserve ? 'en utilisant la réserve à la fin' : 'sans crédits en réserve'}</small></td><td class="montant">${esc(h(e.restantFin))}</td></tr>
       </tbody></table>
       <button class="btn btn-large btn-principal" data-act="dossier">${configure ? 'Modifier mon dossier' : 'Entrer mon solde CCQ'}</button>
     </section>
@@ -120,23 +133,22 @@ export function rendreCarnet(racine, _param, naviguer) {
       champs: [
         { nom: 'heuresDepart', label: 'Heures travaillées inscrites', type: 'nombre', valeur: c.heuresDepart, requis: true, aide: 'Sans les crédits de formation. Zéro si tu commences.' },
         { nom: 'dateDepart', label: 'Solde en date du', type: 'date', valeur: c.dateDepart ?? auj, aide: 'Les heures saisies dans l\'app après cette date s\'ajoutent au solde.' },
-        { nom: 'credits', label: 'Crédits de formation (heures)', type: 'nombre', valeur: c.credits, placeholder: 'DEP charpenterie-menuiserie : 2025', aide: 'Laisse vide si tu n\'en as pas.' },
-        { nom: 'creditsMode', label: 'Utilisation des crédits', type: 'choix', valeur: c.creditsMode, options: [
-          { valeur: 'fin', label: 'En réserve à la dernière période (cas habituel)' },
-          { valeur: 'devance', label: 'Devancés : comptés dès maintenant' },
-        ], aide: 'À lire dans ton dossier. Pour devancer : CCQ, 1 888 842-8282.' },
+        { nom: 'credits', label: 'Crédits de formation obtenus (heures)', type: 'nombre', valeur: c.credits, placeholder: 'DEP charpenterie-menuiserie : 2025', aide: 'Total des crédits, utilisés ou non. Laisse vide si tu n\'en as pas.' },
+        { nom: 'creditsUtilises', label: 'Dont crédits déjà utilisés (heures)', type: 'nombre', valeur: c.creditsUtilises ?? 0, aide: 'Zéro tant que tu gardes tes crédits en réserve. Le jour où tu en fais verser à ton carnet, inscris ici le nombre d\'heures.' },
         { nom: 'facteurSupp', label: 'Une heure majorée compte pour', type: 'nombre', valeur: c.facteurSupp ?? 1, aide: 'En heures au carnet. 1 par défaut : à vérifier auprès de la CCQ.' },
       ],
       valider: (v) => {
         if (v.heuresDepart < 0) return 'Le solde ne peut pas être négatif.';
         if (v.credits !== null && (v.credits < 0 || v.credits > CARNET.plafondCredits)) return `Les crédits vont de 0 à ${CARNET.plafondCredits} h (plafond du métier).`;
+        if ((v.creditsUtilises ?? 0) < 0 || (v.creditsUtilises ?? 0) > (v.credits ?? 0)) return 'Les crédits utilisés vont de 0 au total des crédits obtenus.';
         if (v.facteurSupp !== null && (v.facteurSupp < 1 || v.facteurSupp > 2)) return 'Le facteur doit être entre 1 et 2.';
         return null;
       },
     });
     if (r?.action !== 'ok') return;
     await majReglages((reg) => {
-      reg.carnet = { ...reg.carnet, ...r.valeurs, dateDepart: r.valeurs.dateDepart || null, facteurSupp: r.valeurs.facteurSupp ?? 1 };
+      reg.carnet = { ...reg.carnet, ...r.valeurs, dateDepart: r.valeurs.dateDepart || null, creditsUtilises: r.valeurs.creditsUtilises ?? 0, facteurSupp: r.valeurs.facteurSupp ?? 1 };
+      delete reg.carnet.creditsMode;
     });
     toast('Dossier enregistré');
     naviguer('carnet');

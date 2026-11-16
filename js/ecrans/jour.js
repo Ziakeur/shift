@@ -281,7 +281,7 @@ export function rendreJour(racine, date, naviguer) {
       ],
     });
     if (!choix) return;
-    if (choix === '__reglages') return naviguer('reglages');
+    if (choix === '__reglages') return naviguer('reglages', 'emploi');
     const modele = profils.find((p) => p.id === choix);
     if (!modele) return;
     await file;

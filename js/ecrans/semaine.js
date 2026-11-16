@@ -69,7 +69,7 @@ export function rendreSemaine(racine, debut, naviguer) {
       }).join('')}
     </section>
     <button class="btn btn-large" data-act="remplir">Remplir les jours vides avec un modèle</button>
-    <p class="aide centre">Règles appliquées : ${esc(s.jours.at(-1).regles ? `${s.jours.at(-1).regles.seuilJour} h par jour, ${s.jours.at(-1).regles.seuilSemaine} h par semaine` : 'aucune')}. Modifiable dans Réglages, Profil.</p>
+    <p class="aide centre">Règles appliquées : ${esc(s.jours.at(-1).regles ? `${s.jours.at(-1).regles.seuilJour} h par jour, ${s.jours.at(-1).regles.seuilSemaine} h par semaine` : 'aucune')}. Modifiable dans Réglages, Mon emploi.</p>
   `;
 
   racine.onchange = null;

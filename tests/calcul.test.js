@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculerSemaine, classerSemaine, profilPourDate, tauxDuProfil } from '../js/calcul.js';
+import { calculerSemaine, classerSemaine, profilPourDate, tauxDuProfil, changerProfils } from '../js/calcul.js';
 import { GRILLES, fusionnerGrilles, grillePourDate, prereglage, ECHELONS } from '../js/grilles.js';
 import { joursDeLaSemaine } from '../js/temps.js';
 
@@ -242,4 +242,36 @@ test('classerSemaine : le seuil de la semaine coupe en plein milieu d\'une journ
   const jours = joursDeLaSemaine(DIM).map((date, i) => ({ date, regles, minutes: i >= 1 && i <= 5 ? 510 : 0 }));
   const c = classerSemaine(jours);
   assert.deepEqual(c[5].tranches, [{ mult: 1, minutes: 360 }, { mult: 1.5, minutes: 60 }, { mult: 2, minutes: 90 }]);
+});
+
+test('changement de réglage : vaut à partir de sa date, le passé ne bouge pas', () => {
+  const profils = [profil({ employeur: 'A' })];
+  const apres = changerProfils(profils, { echelon: 'app2' }, '2026-11-18', () => 'neuf');
+  assert.deepEqual(apres.map((p) => [p.id, p.dateEffet, p.echelon, p.employeur]), [['p1', '2025-01-01', 'app1', 'A'], ['neuf', '2026-11-18', 'app2', 'A']]);
+  assert.equal(profils.length, 1);
+  assert.equal(profilPourDate(apres, '2026-11-17').echelon, 'app1');
+  assert.equal(profilPourDate(apres, '2026-11-18').echelon, 'app2');
+});
+
+test('changement de réglage : se poursuit dans les réglages plus tardifs qui avaient l\'ancienne valeur', () => {
+  const profils = [
+    profil({ employeur: 'A' }),
+    profil({ id: 'p2', dateEffet: '2026-10-01', employeur: 'A', echelon: 'app2' }),
+    profil({ id: 'p3', dateEffet: '2026-12-01', employeur: 'C', echelon: 'app2' }),
+  ];
+  const apres = changerProfils(profils, { employeur: 'B' }, '2026-09-01', () => 'neuf');
+  assert.deepEqual(apres.map((p) => [p.dateEffet, p.employeur, p.echelon]), [
+    ['2025-01-01', 'A', 'app1'],
+    ['2026-09-01', 'B', 'app1'],
+    ['2026-10-01', 'B', 'app2'],
+    ['2026-12-01', 'C', 'app2'],
+  ]);
+});
+
+test('changement de réglage : à une date qui a déjà un réglage, on le complète sans doublon', () => {
+  const profils = [profil(), profil({ id: 'p2', dateEffet: '2026-10-01', echelon: 'app2' })];
+  const apres = changerProfils(profils, { secteur: 'res-leger', isole: false, gite: false }, '2026-10-01', () => 'neuf');
+  assert.equal(apres.length, 2);
+  assert.deepEqual([apres[1].id, apres[1].secteur, apres[1].echelon], ['p2', 'res-leger', 'app2']);
+  assert.equal(apres[0].secteur, 'ic');
 });

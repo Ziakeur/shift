@@ -19,6 +19,9 @@
   --s15: #199e70;
   --s2: #d95926;
   --sx: #898781;
+  /* Courbes de l'accueil : brut estimé et net reçu, paire vérifiée de la même façon. */
+  --c-brut: #9085e9;
+  --c-net: #0ca30c;
   --rayon: 14px;
   --touche: 56px;
   color-scheme: dark;
@@ -41,6 +44,8 @@
   --s1: #2a78d6;
   --s15: #1baf7a;
   --s2: #eb6834;
+  --c-brut: #6250d6;
+  --c-net: #008300;
   color-scheme: light;
 }
 
@@ -325,6 +330,40 @@ dialog.feuille::backdrop { background: rgb(0 0 0 / .6); }
 .legende { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .8rem; color: var(--discret); }
 .legende span { display: inline-flex; align-items: center; gap: 6px; }
 .legende i { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+
+/* Courbes de l'accueil */
+.puce-petite { min-height: 40px; font-size: .88rem; font-weight: 600; }
+.mini strong.discret { color: var(--discret); }
+.graphique-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.graphique { touch-action: pan-y; user-select: none; -webkit-user-select: none; border-radius: 8px; min-height: 140px; }
+.graphique svg { display: block; max-width: 100%; height: auto; }
+.g-grille { stroke: var(--bord); stroke-width: 1; }
+.g-texte { fill: var(--discret); font-size: 11px; font-variant-numeric: tabular-nums; }
+.g-ligne { fill: none; stroke: var(--c); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.g-aire { fill: var(--c); opacity: .12; }
+.g-point { fill: var(--c); stroke: var(--surface); stroke-width: 2; }
+.g-point.g-creux { fill: var(--surface); stroke: var(--c); }
+.g-repere { stroke: var(--discret); stroke-width: 1; }
+.c-brut { --c: var(--c-brut); }
+.c-net { --c: var(--c-net); }
+.c-heures { --c: var(--s1); }
+.legende .cle { width: 16px; height: 4px; border-radius: 2px; background: var(--c); }
+.lecture {
+  display: flex; flex-direction: column; gap: 6px; padding: 12px;
+  border: 1px solid var(--bord); border-radius: 12px; background: var(--fond);
+}
+.lecture-titre { font-size: .8rem; color: var(--discret); border-top: 1px solid var(--bord); padding-top: 8px; margin-top: 2px; }
+.lecture .barre-h { flex: none; }
+.lecture .r-jalon { margin-top: 2px; }
+.lecture .ligne-effacer { margin-top: 4px; }
+
+/* Réglages : menu, pages */
+.menu-groupe { display: flex; flex-direction: column; gap: 6px; }
+.menu-titre { margin: 8px 4px 0; font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--discret); }
+.chevron { flex: none; color: var(--discret); font-size: 1.5rem; line-height: 1; }
+.entete-vide { width: var(--touche); flex: none; }
+.texte-alerte { color: var(--danger); }
+.rangee-corps > strong { overflow-wrap: anywhere; }
 
 /* Ligne du temps : un ruban à mesurer, une graduation par semaine */
 .ruban { list-style: none; margin: 0; padding: 0; --ruban: #ffc93c; --ruban-encre: #1a1300; }

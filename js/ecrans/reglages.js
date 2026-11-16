@@ -1,55 +1,157 @@
-// Écran « Réglages » : profil et historique, grilles, modèles, chantiers, primes, fériés, sauvegarde.
+// Écran « Réglages » : un menu, puis une page par sujet (#/reglages/emploi, #/reglages/horaires…).
+// « Mon emploi » : chaque ligne (employeur, convention, échelon, taux…) se change séparément, à partir d'une date.
 
 import { etat, majReglages, nouvelId, exporterJSON, exporterCSV, importerJSON, validerSauvegarde, joursDepuisSauvegarde, aujourdhui } from '../etat.js';
 import { APP } from '../config.js';
-import { formatDate } from '../temps.js';
-import { tauxDuProfil, reglesDuProfil } from '../calcul.js';
+import { ajouterJours, formatDate } from '../temps.js';
+import { tauxDuProfil, reglesDuProfil, profilPourDate, changerProfils } from '../calcul.js';
 import { SECTEURS, ECHELONS, GRILLES_MANQUANTES, PROCHAINE_HAUSSE, prereglage, cleGrille, VACANCES_PCT } from '../grilles.js';
 import { esc, argent, nombre, toast, formulaire, confirmer, telecharger, partager } from '../ui.js';
 
-const ouverts = new Set(['profil']);
 const UNITES = { heure: 'par heure travaillée', jour: 'par jour travaillé', semaine: 'par semaine travaillée' };
 const CHAMPS_REGLES = ['seuilJour', 'seuilSemaine', 'heuresPalier1', 'multPalier1', 'multPalier2', 'multSamedi', 'multDimanche', 'multFerie', 'reductionFerie'];
 const dateCourte = (d) => formatDate(d, { jour: false, annee: true });
 const fr = (n) => (typeof n === 'number' ? String(n).replace('.', ',') : '');
+const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
 
-function section(id, titre, contenu, compteur = '') {
-  return `<details class="carte section" data-section="${id}" ${ouverts.has(id) ? 'open' : ''}>
-    <summary><span>${esc(titre)}</span>${compteur !== '' ? `<small>${esc(compteur)}</small>` : ''}</summary>
-    ${contenu}
-  </details>`;
+// Les pages, dans l'ordre du menu. `resume` : ce qui est réglé en ce moment, affiché sous le titre.
+const GROUPES = [
+  { titre: 'Mon travail', pages: ['emploi', 'horaires', 'chantiers', 'primes'] },
+  { titre: 'Règles de calcul', pages: ['taux', 'feries'] },
+  { titre: 'Application', pages: ['affichage', 'sauvegarde', 'apropos'] },
+];
+const TITRES = {
+  emploi: 'Mon emploi',
+  horaires: 'Mes horaires habituels',
+  chantiers: 'Mes chantiers',
+  primes: 'Primes et indemnités',
+  taux: 'Taux horaires',
+  feries: 'Jours fériés',
+  affichage: 'Affichage et semaine',
+  sauvegarde: 'Sauvegarde',
+  apropos: 'À propos',
+};
+export const PAGES_REGLAGES = Object.keys(TITRES);
+
+function nomConvention(p) {
+  return `${SECTEURS[p.secteur]?.nom ?? p.secteur}${p.isole ? ', chantier isolé' : ''}`;
+}
+
+function texteTaux(p, date) {
+  const t = tauxDuProfil(p, date, etat.grilles);
+  if (t.taux === null) return { valeur: 'À vérifier', detail: 'Aucune grille vérifiée pour cette convention à cette date : entre ton taux.', manquant: true };
+  if (t.origine === 'perso') return { valeur: `${argent(t.taux)} l'heure`, detail: 'Taux personnalisé (remplace la grille)' };
+  return { valeur: `${argent(t.taux)} l'heure`, detail: `Grille en vigueur depuis le ${dateCourte(t.grille.dateEffet)}` };
+}
+
+function resumeProfil(p, date) {
+  return [p.employeur, nomConvention(p), ECHELONS[p.echelon] ?? p.echelon, texteTaux(p, date).valeur].filter(Boolean).join(' · ');
 }
 
 function resumeRegles(r) {
-  const m = (x) => (typeof x === 'number' ? `× ${fr(x)}` : 'comme les autres heures supplémentaires');
+  const majuscule = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   const paliers = r.heuresPalier1 > 0 && r.multPalier1 !== r.multPalier2
-    ? `${fr(r.heuresPalier1)} première(s) heure(s) supplémentaire(s) de la semaine × ${fr(r.multPalier1)}, ensuite × ${fr(r.multPalier2)}`
-    : `heures supplémentaires × ${fr(r.multPalier2)}`;
-  return `${fr(r.seuilJour)} h par jour, ${fr(r.seuilSemaine)} h par semaine ; ${paliers} ; samedi ${m(r.multSamedi)} ; dimanche ${m(r.multDimanche)} ; férié ${m(r.multFerie)}.`;
+    ? `${r.heuresPalier1 === 1 ? 'la 1re heure' : `les ${fr(r.heuresPalier1)} premières heures`} de la semaine × ${fr(r.multPalier1)}, ensuite × ${fr(r.multPalier2)}`
+    : `× ${fr(r.multPalier2)}`;
+  const jours = [['samedi', r.multSamedi], ['dimanche', r.multDimanche], ['férié', r.multFerie]];
+  const fixes = jours.filter(([, m]) => typeof m === 'number').map(([nom, m]) => `${nom} × ${fr(m)}`);
+  const comme = jours.filter(([, m]) => typeof m !== 'number').map(([nom]) => nom);
+  return `${fr(r.seuilJour)} h par jour, ${fr(r.seuilSemaine)} h par semaine. Au-delà : ${paliers}.`
+    + `${fixes.length ? ` ${majuscule(fixes.join(', '))}.` : ''}`
+    + `${comme.length ? ` ${majuscule(comme.join(', '))} : comme les heures supplémentaires.` : ''}`;
 }
 
-function htmlProfils() {
-  const auj = aujourdhui();
-  const profils = [...etat.reglages.profils].sort((a, b) => b.dateEffet.localeCompare(a.dateEffet));
-  const actif = profils.find((p) => p.dateEffet <= auj) ?? profils.at(-1);
+function texteSauvegarde() {
+  const n = joursDepuisSauvegarde();
+  return n === null ? 'jamais' : n === 0 ? 'aujourd\'hui' : `il y a ${pluriel(n, 'jour')}`;
+}
+
+function resumePage(page, auj) {
+  const r = etat.reglages;
+  if (page === 'emploi') return resumeProfil(profilPourDate(r.profils, auj), auj);
+  if (page === 'horaires') return r.modeles.length ? r.modeles.map((m) => m.nom).join(', ') : 'Aucun horaire enregistré';
+  if (page === 'chantiers') {
+    const actifs = r.chantiers.filter((c) => c.actif !== false).length;
+    return r.chantiers.length ? `${pluriel(actifs, 'chantier')} en cours sur ${r.chantiers.length}` : 'Aucun chantier';
+  }
+  if (page === 'primes') return r.primes.length ? r.primes.map((p) => p.nom).join(', ') : 'Aucune (pension, déplacement, équipement…)';
+  if (page === 'taux') return 'Les grilles de salaire, avec leur date et leur source';
+  if (page === 'feries') return `${pluriel(r.feries.length, 'date')} : heures majorées ces jours-là`;
+  if (page === 'affichage') return `Thème ${r.theme === 'clair' ? 'clair' : r.theme === 'auto' ? 'comme le téléphone' : 'sombre'} · semaine à partir du ${r.debutSemaine === 1 ? 'lundi' : 'dimanche'}`;
+  if (page === 'sauvegarde') return `Dernière sauvegarde : ${texteSauvegarde()}`;
+  return `${APP.nom}, version ${APP.version}`;
+}
+
+function htmlMenu(auj) {
   return `
-    <p class="aide">Chaque changement (taux, échelon, convention, employeur) s'applique à partir de sa date. Les semaines d'avant gardent l'ancien réglage.</p>
-    <div class="liste">
-      ${profils.map((p) => {
-        const t = tauxDuProfil(p, p.dateEffet > auj ? p.dateEffet : auj, etat.grilles);
-        const taux = t.taux === null ? 'taux à vérifier' : `${argent(t.taux)} l'heure${t.origine === 'perso' ? ' (personnalisé)' : ''}`;
-        return `<button class="rangee" data-profil="${esc(p.id)}">
-          <span class="rangee-corps">
-            <span><strong>${esc(SECTEURS[p.secteur]?.nom ?? p.secteur)}${p.isole ? ', chantier isolé' : ''}</strong> · ${esc(ECHELONS[p.echelon])}</span>
-            <small>Depuis le ${esc(dateCourte(p.dateEffet))}${p.employeur ? ` · ${esc(p.employeur)}` : ''} · ${esc(taux)}${p.regles ? ' · règles personnalisées' : ''}</small>
-          </span>
-          ${p.id === actif.id ? '<span class="badge badge-ok">en cours</span>' : p.dateEffet > auj ? '<span class="badge">à venir</span>' : ''}
-        </button>`;
-      }).join('')}
-    </div>
-    <button class="btn btn-large btn-principal" data-act="profil-nouveau">Ajouter un changement</button>
-    <p class="aide"><strong>Heures supplémentaires en cours :</strong> ${esc(resumeRegles(reglesDuProfil(actif)))}</p>
-    <p class="aide">${esc(reglesDuProfil(actif).source ?? '')}</p>`;
+    <header class="entete"><div class="entete-titre"><strong>Réglages</strong><small>Touche une ligne pour voir ou changer</small></div></header>
+    ${GROUPES.map((g) => `
+      <section class="menu-groupe">
+        <h2 class="menu-titre">${esc(g.titre)}</h2>
+        <div class="liste">
+          ${g.pages.map((page) => `
+            <button class="rangee" data-page="${page}">
+              <span class="rangee-corps"><strong>${esc(TITRES[page])}</strong><small>${esc(resumePage(page, auj))}</small></span>
+              <span class="chevron" aria-hidden="true">›</span>
+            </button>`).join('')}
+        </div>
+      </section>`).join('')}`;
+}
+
+function entetePage(page) {
+  return `
+    <header class="entete">
+      <button class="btn-icone" data-act="retour" aria-label="Retour aux réglages">‹</button>
+      <div class="entete-titre"><strong>${esc(TITRES[page])}</strong><small>Réglages</small></div>
+      <span class="entete-vide" aria-hidden="true"></span>
+    </header>`;
+}
+
+function ligneValeur(cle, label, valeur, detail = '', alerte = false) {
+  return `
+    <button class="rangee" data-changer="${cle}">
+      <span class="rangee-corps"><small>${esc(label)}</small><strong class="${alerte ? 'texte-alerte' : ''}">${esc(valeur)}</strong>${detail ? `<small>${esc(detail)}</small>` : ''}</span>
+      <span class="chevron" aria-hidden="true">›</span>
+    </button>`;
+}
+
+function htmlEmploi(auj) {
+  const profils = [...etat.reglages.profils].sort((a, b) => b.dateEffet.localeCompare(a.dateEffet));
+  const actif = profilPourDate(profils, auj);
+  const taux = texteTaux(actif, auj);
+  const regles = reglesDuProfil(actif);
+  const aVenir = profils.filter((p) => p.dateEffet > auj).at(-1);
+  return `
+    <section class="carte">
+      <h2>En ce moment</h2>
+      <p class="aide">Touche une ligne pour la changer. Tu choisis la date du changement : les journées d'avant gardent l'ancien réglage, et leur paie ne bouge pas.</p>
+      <div class="liste">
+        ${ligneValeur('employeur', 'Employeur', actif.employeur || 'Non précisé')}
+        ${ligneValeur('convention', 'Convention (secteur)', nomConvention(actif), 'Fixe le taux et les règles d\'heures supplémentaires')}
+        ${ligneValeur('echelon', 'Échelon', ECHELONS[actif.echelon] ?? actif.echelon)}
+        ${ligneValeur('taux', 'Taux horaire', taux.valeur, taux.detail, taux.manquant)}
+        ${ligneValeur('regles', 'Heures supplémentaires', actif.regles ? 'Règles personnalisées' : 'Règles de la convention', resumeRegles(regles))}
+        ${ligneValeur('vacances', 'Indemnité de vacances', `${nombre(actif.vacancesPct ?? VACANCES_PCT)} %`, 'Versée à part par l\'employeur, pas dans le net de la paie')}
+      </div>
+      ${aVenir ? `<p class="note-info">Un changement est déjà prévu le ${esc(dateCourte(aVenir.dateEffet))} : ${esc(resumeProfil(aVenir, aVenir.dateEffet))}.</p>` : ''}
+    </section>
+
+    <section class="carte">
+      <h2>Historique</h2>
+      <p class="aide">Tes réglages au fil du temps. Chaque période garde son taux et ses règles. Touche une période pour la corriger ou la supprimer.</p>
+      <div class="liste">
+        ${profils.map((p, i) => {
+          const fin = i > 0 ? ajouterJours(profils[i - 1].dateEffet, -1) : null;
+          const periode = fin ? `Du ${dateCourte(p.dateEffet)} au ${dateCourte(fin)}` : `Depuis le ${dateCourte(p.dateEffet)}`;
+          const quand = p.dateEffet > auj ? p.dateEffet : (fin && fin < auj ? fin : auj);
+          return `
+          <button class="rangee" data-profil="${esc(p.id)}">
+            <span class="rangee-corps"><strong>${esc(p.dateEffet > auj ? `À partir du ${dateCourte(p.dateEffet)}` : periode)}</strong><small>${esc(resumeProfil(p, quand))}${p.regles ? ' · règles personnalisées' : ''}</small></span>
+            ${p.id === actif.id ? '<span class="badge badge-ok">en cours</span>' : p.dateEffet > auj ? '<span class="badge">à venir</span>' : ''}
+          </button>`;
+        }).join('')}
+      </div>
+    </section>`;
 }
 
 function htmlGrilles() {
@@ -61,12 +163,16 @@ function htmlGrilles() {
   }
   const statut = { verifie: ['vérifié', 'badge-ok'], 'date-a-verifier': ['date à vérifier', ''], perso: ['saisie à la main', ''] };
   return `
-    <p class="aide">Taux horaires du charpentier-menuisier. Chaque grille porte sa date d'effet et sa source. Touche une grille pour la corriger.</p>
-    <p class="aide">${esc(PROCHAINE_HAUSSE.note)}</p>
+    <section class="carte">
+      <p class="aide">Taux horaires du charpentier-menuisier, lus sur des sources officielles. Ton taux est choisi tout seul selon ta convention, ton échelon et la date. Touche une grille pour la corriger.</p>
+      <p class="aide">${esc(PROCHAINE_HAUSSE.note)}</p>
+      <button class="btn btn-large" data-act="grille-nouvelle">Ajouter une grille</button>
+    </section>
     ${[...groupes.entries()].map(([cle, liste]) => {
       const [secteur, isole] = cle.split('|');
       const s = SECTEURS[secteur];
-      return `<h3 class="sous-titre">${esc(s?.nom ?? secteur)}${isole === '1' ? ', chantier isolé' : ''} <small>annexe ${esc(isole === '1' ? s?.annexeIsole : s?.annexe)}</small></h3>
+      return `<section class="carte">
+      <h2>${esc(s?.nom ?? secteur)}${isole === '1' ? ', chantier isolé' : ''} <small>annexe ${esc(isole === '1' ? s?.annexeIsole : s?.annexe)}</small></h2>
       <div class="liste">
         ${liste.map((g) => `<button class="rangee" data-grille="${esc(cleGrille(g))}">
           <span class="rangee-corps">
@@ -75,94 +181,100 @@ function htmlGrilles() {
             <small>${esc(g.source ?? 'Source non précisée')}${g.note ? ` ${esc(g.note)}` : ''}</small>
           </span>
         </button>`).join('')}
-      </div>`;
+      </div></section>`;
     }).join('')}
-    <h3 class="sous-titre">Non intégré, à vérifier</h3>
-    <ul class="sources">${GRILLES_MANQUANTES.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
-    <p class="aide">Pour valider un taux : outil « Salaire et taux » de la CCQ, tableaux de la SQI, ou texte de la convention. En cas de différence, la convention officielle prime.</p>
-    <button class="btn btn-large" data-act="grille-nouvelle">Ajouter une grille</button>`;
+    <section class="carte">
+      <h2>Non intégré, à vérifier</h2>
+      <ul class="sources">${GRILLES_MANQUANTES.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
+      <p class="aide">Pour valider un taux : outil « Salaire et taux » de la CCQ, tableaux de la SQI, ou texte de la convention. En cas de différence, la convention officielle prime.</p>
+    </section>`;
 }
 
 function htmlListe(items, attribut, ligne, vide) {
   if (!items.length) return `<p class="aide">${esc(vide)}</p>`;
-  return `<div class="liste">${items.map((x) => `<button class="rangee" data-${attribut}="${esc(x.id)}"><span class="rangee-corps">${ligne(x)}</span></button>`).join('')}</div>`;
+  return `<div class="liste">${items.map((x) => `<button class="rangee" data-${attribut}="${esc(x.id)}"><span class="rangee-corps">${ligne(x)}</span><span class="chevron" aria-hidden="true">›</span></button>`).join('')}</div>`;
 }
 
-function htmlSauvegarde() {
-  const n = joursDepuisSauvegarde();
-  const quand = n === null ? 'jamais' : n === 0 ? 'aujourd\'hui' : `il y a ${n} jour(s)`;
-  return `
-    <p class="aide">Tes données sont seulement sur ce téléphone. Une sauvegarde est un fichier que tu gardes ailleurs (Google Drive, courriel à toi-même). Dernière sauvegarde : <strong>${esc(quand)}</strong>.</p>
-    <button class="btn btn-large btn-principal" data-act="export-json">Sauvegarder mes données</button>
-    <button class="btn btn-large" data-act="export-csv">Exporter mes heures en CSV (Excel)</button>
-    <button class="btn btn-large" data-act="import">Restaurer une sauvegarde</button>
-    <input type="file" id="fichier-import" accept="application/json,.json" class="cache">
-    <label class="champ"><span>Me rappeler de sauvegarder tous les (jours)</span>
-      <input type="text" inputmode="numeric" id="rappel-jours" value="${esc(etat.reglages.sauvegarde.rappelJours)}"></label>
-    <p class="aide" id="etat-stockage"></p>`;
-}
-
-export function rendreReglages(racine, _param, naviguer) {
+function htmlPage(page, auj) {
   const r = etat.reglages;
   const chantierNom = (id) => r.chantiers.find((c) => c.id === id)?.nom;
-
-  racine.innerHTML = `
-    <header class="entete"><div class="entete-titre"><strong>Réglages</strong><small>Rien n'est figé : tout se modifie ici</small></div></header>
-
-    ${section('profil', 'Profil et historique', htmlProfils())}
-
-    ${section('modeles', 'Modèles d\'horaire', `
-      <p class="aide">Un modèle remplit une journée en un appui. Les jours cochés servent à « Remplir la semaine ».</p>
-      ${htmlListe(r.modeles, 'modele', (m) => `<span><strong>${esc(m.nom)}</strong></span><small>${esc(m.debut)} à ${esc(m.fin)}, pause ${esc(m.pauseMin ?? 0)} min, ${(m.jours ?? []).length} jour(s) par semaine</small>`, 'Aucun modèle.')}
-      <button class="btn btn-large" data-act="modele-nouveau">Ajouter un modèle</button>`, r.modeles.length)}
-
-    ${section('chantiers', 'Chantiers', `
+  if (page === 'emploi') return htmlEmploi(auj);
+  if (page === 'taux') return htmlGrilles();
+  if (page === 'horaires') return `
+    <section class="carte">
+      <p class="aide">Un horaire habituel remplit une journée en un seul appui dans l'écran Jour. Les jours cochés servent à « Remplir la semaine ». Touche un horaire pour le modifier.</p>
+      ${htmlListe(r.modeles, 'modele', (m) => `<span><strong>${esc(m.nom)}</strong></span><small>${esc(m.debut)} à ${esc(m.fin)}, pause ${esc(m.pauseMin ?? 0)} min, ${pluriel((m.jours ?? []).length, 'jour')} par semaine</small>`, 'Aucun horaire enregistré.')}
+      <button class="btn btn-large btn-principal" data-act="modele-nouveau">Ajouter un horaire</button>
+    </section>`;
+  if (page === 'chantiers') return `
+    <section class="carte">
+      <p class="aide">Les chantiers en cours sont proposés dans l'écran Jour. Marque un chantier « terminé » pour qu'il ne soit plus proposé ; les journées déjà saisies le gardent.</p>
       ${htmlListe(r.chantiers, 'chantier', (c) => `<span><strong>${esc(c.nom)}</strong>${c.actif === false ? ' <span class="badge">terminé</span>' : ''}</span><small>${esc([c.adresse, c.ville].filter(Boolean).join(', ') || 'Pas d\'adresse')}</small>`, 'Aucun chantier. Ajoute-en un ici ou directement depuis l\'écran Jour.')}
-      <button class="btn btn-large" data-act="chantier-nouveau">Ajouter un chantier</button>`, r.chantiers.length)}
-
-    ${section('primes', 'Primes et indemnités', `
-      <p class="aide">Lignes libres : pension, déplacement, prime de chantier isolé, équipement de sécurité… Exemple lu dans les exemples de paie du 26 avril 2026 : indemnité d'équipement de sécurité de 0,75 $ par heure en institutionnel-commercial (ACQ) et de 0,65 $ en résidentiel léger (APCHQ), non imposable.</p>
+      <button class="btn btn-large btn-principal" data-act="chantier-nouveau">Ajouter un chantier</button>
+    </section>`;
+  if (page === 'primes') return `
+    <section class="carte">
+      <p class="aide">Montants ajoutés à la paie en plus des heures : pension, déplacement, prime de chantier isolé, équipement de sécurité… Tu choisis si chaque ligne compte dans le salaire brut ou si c'est une indemnité à part.</p>
       ${htmlListe(r.primes, 'prime', (p) => `<span><strong>${esc(p.nom)}</strong>${p.actif === false ? ' <span class="badge">en pause</span>' : ''}</span><small>${esc(argent(p.montant))} ${UNITES[p.unite]}${p.dansSalaire ? ' · compte dans le salaire' : ' · indemnité'}${p.chantierId ? ` · ${esc(chantierNom(p.chantierId) ?? 'chantier supprimé')}` : ''}</small>`, 'Aucune prime.')}
-      <button class="btn btn-large" data-act="prime-nouvelle">Ajouter une prime</button>`, r.primes.length)}
-
-    ${section('grilles', 'Grilles de taux', htmlGrilles())}
-
-    ${section('feries', 'Jours fériés', `
-      <p class="aide">Dates prévues aux conventions 2025-2029. Les heures faites ces jours-là sont majorées, et le seuil de la semaine baisse. Touche une date pour la retirer.</p>
+      <button class="btn btn-large btn-principal" data-act="prime-nouvelle">Ajouter une prime ou une indemnité</button>
+      <p class="aide">Exemple lu dans les exemples de paie du 26 avril 2026 : indemnité d'équipement de sécurité de 0,75 $ par heure en institutionnel-commercial (ACQ) et de 0,65 $ en résidentiel léger (APCHQ), non imposable.</p>
+    </section>`;
+  if (page === 'feries') return `
+    <section class="carte">
+      <p class="aide">Dates prévues aux conventions 2025-2029. Les heures faites ces jours-là sont majorées, et le seuil d'heures normales de la semaine baisse. Touche une date pour la retirer.</p>
       <div class="puces">${[...r.feries].sort().map((d) => `<button class="puce" data-ferie="${d}">${esc(dateCourte(d))} ✕</button>`).join('')}</div>
-      <div class="ligne-ajout"><input type="date" id="ferie-date" aria-label="Date à ajouter"><button class="btn" data-act="ferie-ajouter">Ajouter</button></div>`, r.feries.length)}
-
-    ${section('affichage', 'Affichage et semaine', `
+      <div class="ligne-ajout"><input type="date" id="ferie-date" aria-label="Date à ajouter"><button class="btn" data-act="ferie-ajouter">Ajouter</button></div>
+    </section>`;
+  if (page === 'affichage') return `
+    <section class="carte">
       <label class="champ"><span>Thème</span><select id="theme">
         <option value="sombre" ${r.theme === 'sombre' ? 'selected' : ''}>Sombre</option>
         <option value="clair" ${r.theme === 'clair' ? 'selected' : ''}>Clair (plein soleil)</option>
         <option value="auto" ${r.theme === 'auto' ? 'selected' : ''}>Comme le téléphone</option>
       </select></label>
       <label class="champ"><span>À l'ouverture, afficher</span><select id="ecran-ouverture">
-        <option value="accueil" ${r.ecranOuverture !== 'jour' ? 'selected' : ''}>L'accueil (récapitulatif et ligne du temps)</option>
+        <option value="accueil" ${r.ecranOuverture !== 'jour' ? 'selected' : ''}>L'accueil (gains, heures, historique)</option>
         <option value="jour" ${r.ecranOuverture === 'jour' ? 'selected' : ''}>La saisie du jour (un appui de moins)</option>
       </select></label>
+    </section>
+    <section class="carte">
       <label class="champ"><span>La semaine commence le</span><select id="debut-semaine">
         <option value="0" ${r.debutSemaine === 0 ? 'selected' : ''}>Dimanche (semaine de paie de la construction)</option>
         <option value="1" ${r.debutSemaine === 1 ? 'selected' : ''}>Lundi</option>
-      </select><small class="aide">Change le découpage des semaines, donc le calcul des heures supplémentaires. Regarde les dates de ta période de paie sur ton talon.</small></label>`)}
-
-    ${section('sauvegarde', 'Sauvegarde et restauration', htmlSauvegarde())}
-
-    ${section('apropos', 'À propos', `
+      </select><small class="aide">Change le découpage des semaines, donc le calcul des heures supplémentaires. Regarde les dates de ta période de paie sur ton talon.</small></label>
+    </section>`;
+  if (page === 'sauvegarde') return `
+    <section class="carte">
+      <p class="aide">Tes données sont seulement sur ce téléphone. Une sauvegarde est un fichier que tu gardes ailleurs (Google Drive, courriel à toi-même). Dernière sauvegarde : <strong>${esc(texteSauvegarde())}</strong>.</p>
+      <button class="btn btn-large btn-principal" data-act="export-json">Sauvegarder mes données</button>
+      <button class="btn btn-large" data-act="import">Restaurer une sauvegarde</button>
+      <input type="file" id="fichier-import" accept="application/json,.json" class="cache">
+      <p class="aide" id="etat-stockage"></p>
+    </section>
+    <section class="carte">
+      <button class="btn btn-large" data-act="export-csv">Exporter mes heures en CSV (Excel)</button>
+      <label class="champ"><span>Me rappeler de sauvegarder tous les (jours)</span>
+        <input type="text" inputmode="numeric" id="rappel-jours" value="${esc(r.sauvegarde.rappelJours)}"></label>
+    </section>`;
+  return `
+    <section class="carte">
       <p><strong>${esc(APP.nom)}</strong> · version ${esc(APP.version)}</p>
       <p class="aide">${esc(APP.mention)}</p>
-      <p class="aide">Aucun compte, aucun serveur : rien ne quitte ce téléphone, sauf les fichiers que tu exportes toi-même.</p>`)}
-  `;
+      <p class="aide">Aucun compte, aucun serveur : rien ne quitte ce téléphone, sauf les fichiers que tu exportes toi-même.</p>
+    </section>`;
+}
+
+export function rendreReglages(racine, param, naviguer) {
+  const r = etat.reglages;
+  const auj = aujourdhui();
+  const page = TITRES[param] ? param : null;
+
+  racine.innerHTML = page ? `${entetePage(page)}${htmlPage(page, auj)}` : htmlMenu(auj);
 
   const $ = (sel) => racine.querySelector(sel);
-  const rafraichir = () => naviguer('reglages');
+  const rafraichir = () => naviguer('reglages', page);
 
-  for (const d of racine.querySelectorAll('details[data-section]')) {
-    d.addEventListener('toggle', () => (d.open ? ouverts.add(d.dataset.section) : ouverts.delete(d.dataset.section)));
-  }
-
-  if (navigator.storage?.persisted) {
+  if (page === 'sauvegarde' && navigator.storage?.persisted) {
     navigator.storage.persisted().then((ok) => {
       const el = $('#etat-stockage');
       if (el) el.textContent = ok
@@ -171,14 +283,140 @@ export function rendreReglages(racine, _param, naviguer) {
     }).catch(() => {});
   }
 
-  // ----- Profil -----
-  async function editerProfil(p, nouveau) {
+  // ----- Mon emploi : changer une seule chose, à partir d'une date -----
+  const actif = profilPourDate(r.profils, auj);
+
+  const champsRegles = () => [
+    { nom: 'reglesPerso', label: 'Personnaliser les règles', type: 'case', valeur: Boolean(actif.regles), aide: 'Décoché : règles de ta convention, remplies toutes seules.' },
+    { nom: 'seuilJour', label: 'Heures normales par jour', type: 'nombre' },
+    { nom: 'seuilSemaine', label: 'Heures normales par semaine', type: 'nombre' },
+    { nom: 'heuresPalier1', label: 'Premières heures supplémentaires de la semaine (nombre)', type: 'nombre', aide: '0 = pas de premier palier.' },
+    { nom: 'multPalier1', label: 'Multiplicateur de ces premières heures', type: 'nombre' },
+    { nom: 'multPalier2', label: 'Multiplicateur des heures suivantes', type: 'nombre' },
+    { nom: 'multSamedi', label: 'Samedi : multiplicateur', type: 'nombre', placeholder: 'Vide = comme les autres heures supp.' },
+    { nom: 'multDimanche', label: 'Dimanche : multiplicateur', type: 'nombre', placeholder: 'Vide = comme les autres heures supp.' },
+    { nom: 'multFerie', label: 'Férié : multiplicateur', type: 'nombre', placeholder: 'Vide = comme les autres heures supp.' },
+    { nom: 'reductionFerie', label: 'Heures retirées du seuil de la semaine par férié', type: 'nombre' },
+  ];
+
+  // Remplit ou grise les champs des règles selon la case « Personnaliser ».
+  function suivreRegles(form, p, lireConvention) {
+    const perso = form.elements.reglesPerso.checked;
+    const pre = prereglage(...lireConvention(form));
+    const initial = form.dataset.pret !== '1';
+    for (const c of CHAMPS_REGLES) {
+      const el = form.elements[c];
+      if (!perso) el.value = fr(pre[c]);
+      else if (initial) el.value = fr((p.regles ?? {})[c] ?? pre[c]);
+      el.disabled = !perso;
+    }
+    form.dataset.pret = '1';
+  }
+
+  function validerRegles(v) {
+    if (!v.reglesPerso) return null;
+    if (!(v.seuilJour > 0) || !(v.seuilSemaine > 0)) return 'Les seuils par jour et par semaine doivent être plus grands que zéro.';
+    if (!(v.multPalier2 >= 1) || (v.heuresPalier1 > 0 && !(v.multPalier1 >= 1))) return 'Les multiplicateurs doivent être d\'au moins 1.';
+    for (const c of ['multSamedi', 'multDimanche', 'multFerie']) if (v[c] !== null && v[c] < 1) return 'Les multiplicateurs doivent être d\'au moins 1.';
+    return null;
+  }
+
+  const lireRegles = (v) => (v.reglesPerso ? {
+    seuilJour: v.seuilJour, seuilSemaine: v.seuilSemaine, heuresPalier1: v.heuresPalier1 ?? 0,
+    multPalier1: v.multPalier1 ?? v.multPalier2, multPalier2: v.multPalier2,
+    multSamedi: v.multSamedi, multDimanche: v.multDimanche, multFerie: v.multFerie, reductionFerie: v.reductionFerie ?? 0,
+  } : null);
+
+  const CHANGEMENTS = {
+    employeur: {
+      titre: 'Changer d\'employeur',
+      champs: () => [{ nom: 'employeur', label: 'Nom de l\'employeur', valeur: actif.employeur, placeholder: 'Facultatif' }],
+      lire: (v) => ({ employeur: v.employeur }),
+    },
+    convention: {
+      titre: 'Changer de convention',
+      intro: `La convention (le secteur) fixe ton taux et les règles d'heures supplémentaires. Si tu ne sais pas laquelle s'applique, regarde ton talon de paie ou demande à ton employeur.${actif.regles ? ' Tes règles d\'heures supplémentaires personnalisées restent en place : vérifie-les ensuite.' : ''}`,
+      champs: () => [
+        { nom: 'secteur', label: 'Convention (secteur)', type: 'choix', valeur: actif.secteur, options: Object.entries(SECTEURS).map(([valeur, s]) => ({ valeur, label: s.nom })) },
+        { nom: 'isole', label: 'Chantier isolé, Baie-James ou nord du 55e', type: 'case', valeur: actif.isole },
+        { nom: 'gite', label: 'Gîte et couvert fournis (chantier isolé)', type: 'case', valeur: actif.gite },
+      ],
+      suivre: (form) => { form.elements.gite.disabled = !form.elements.isole.checked; },
+      lire: (v) => ({ secteur: v.secteur, isole: v.isole, gite: v.isole && v.gite }),
+    },
+    echelon: {
+      titre: 'Changer d\'échelon',
+      intro: 'Ton taux suit la grille de ta convention pour le nouvel échelon. C\'est ton employeur qui applique le changement sur ta paie.',
+      champs: () => [{ nom: 'echelon', label: 'Échelon', type: 'choix', valeur: actif.echelon, options: Object.entries(ECHELONS).map(([valeur, label]) => ({ valeur, label })) }],
+      lire: (v) => ({ echelon: v.echelon }),
+    },
+    taux: {
+      titre: 'Changer le taux horaire',
+      intro: 'Laisse vide pour suivre la grille de ta convention : les hausses prévues s\'appliquent alors toutes seules. Entre un montant seulement si ton employeur te paie un autre taux.',
+      champs: () => {
+        const grille = tauxDuProfil({ ...actif, tauxPerso: null }, auj, etat.grilles).taux;
+        return [{ nom: 'tauxPerso', label: 'Taux personnalisé ($ l\'heure)', type: 'nombre', valeur: actif.tauxPerso, placeholder: grille === null ? 'Aucune grille : entre ton taux' : `Vide = grille (${argent(grille)})` }];
+      },
+      valider: (v) => (v.tauxPerso !== null && v.tauxPerso <= 0 ? 'Le taux doit être plus grand que zéro.' : null),
+      lire: (v) => ({ tauxPerso: v.tauxPerso }),
+    },
+    regles: {
+      titre: 'Heures supplémentaires',
+      intro: 'Les règles de ta convention sont déjà remplies. Coche « Personnaliser » seulement si ton contrat prévoit autre chose.',
+      champs: champsRegles,
+      suivre: (form) => suivreRegles(form, actif, () => [actif.secteur, actif.isole, actif.gite]),
+      valider: validerRegles,
+      lire: (v) => ({ regles: lireRegles(v) }),
+    },
+    vacances: {
+      titre: 'Indemnité de vacances',
+      intro: `${VACANCES_PCT} % dans les conventions 2025-2029. Affichée à part : l'employeur la verse à la CCQ, elle n'est pas dans le net de la paie.`,
+      champs: () => [{ nom: 'vacancesPct', label: 'Indemnité de vacances (%)', type: 'nombre', valeur: actif.vacancesPct ?? VACANCES_PCT, requis: true }],
+      valider: (v) => (v.vacancesPct < 0 || v.vacancesPct > 30 ? 'L\'indemnité de vacances doit être entre 0 et 30 %.' : null),
+      lire: (v) => ({ vacancesPct: v.vacancesPct }),
+    },
+  };
+
+  async function changer(cle) {
+    const def = CHANGEMENTS[cle];
+    if (!def) return;
     const res = await formulaire({
-      titre: nouveau ? 'Nouveau changement' : 'Modifier le profil',
-      intro: nouveau ? 'S\'applique à partir de la date choisie. Les semaines d\'avant ne changent pas.' : '',
-      supprimer: !nouveau && r.profils.length > 1,
+      titre: def.titre,
+      intro: def.intro ?? '',
       champs: [
-        { nom: 'dateEffet', label: 'À partir du', type: 'date', valeur: p.dateEffet, requis: true },
+        ...def.champs(),
+        { type: 'titre', label: 'À partir de quand ?' },
+        { nom: 'depuis', label: 'Date du changement', type: 'date', valeur: auj, aide: 'Les journées d\'avant cette date gardent l\'ancien réglage.' },
+        { nom: 'correction', label: 'C\'était une erreur de saisie : corriger aussi les journées passées', type: 'case', valeur: false, aide: `Remplace le réglage en cours, en place depuis le ${dateCourte(actif.dateEffet)}. Les paies estimées de cette période seront recalculées.` },
+      ],
+      surChangement: (form) => {
+        form.elements.depuis.disabled = form.elements.correction.checked;
+        def.suivre?.(form);
+      },
+      valider: (v) => {
+        if (!v.correction && !v.depuis) return 'Choisis la date du changement.';
+        return def.valider?.(v) ?? null;
+      },
+    });
+    if (res?.action !== 'ok') return;
+    const v = res.valeurs;
+    const changements = def.lire(v);
+    await majReglages((reg) => {
+      if (v.correction) Object.assign(reg.profils.find((p) => p.id === actif.id), changements);
+      else reg.profils = changerProfils(reg.profils, changements, v.depuis, nouvelId);
+    });
+    toast(v.correction ? 'Réglage corrigé' : v.depuis > auj ? `Changement prévu le ${dateCourte(v.depuis)}` : `Changement enregistré à partir du ${dateCourte(v.depuis)}`);
+    rafraichir();
+  }
+
+  // ----- Historique : corriger ou supprimer une période entière -----
+  async function editerProfil(p) {
+    const res = await formulaire({
+      titre: 'Corriger cette période',
+      intro: 'Tout ce qui est changé ici vaut pour toute la période, à partir de sa date de début. Les paies estimées de cette période seront recalculées.',
+      supprimer: r.profils.length > 1,
+      champs: [
+        { nom: 'dateEffet', label: 'Début de la période', type: 'date', valeur: p.dateEffet, requis: true },
         { nom: 'employeur', label: 'Employeur', valeur: p.employeur, placeholder: 'Facultatif' },
         { nom: 'secteur', label: 'Convention (secteur)', type: 'choix', valeur: p.secteur, options: Object.entries(SECTEURS).map(([valeur, s]) => ({ valeur, label: s.nom })) },
         { nom: 'isole', label: 'Chantier isolé, Baie-James ou nord du 55e', type: 'case', valeur: p.isole },
@@ -187,58 +425,30 @@ export function rendreReglages(racine, _param, naviguer) {
         { nom: 'tauxPerso', label: 'Taux personnalisé ($ l\'heure)', type: 'nombre', valeur: p.tauxPerso, placeholder: 'Vide = taux de la grille', aide: 'Remplace la grille (entente avec l\'employeur).' },
         { nom: 'vacancesPct', label: 'Indemnité de vacances (%)', type: 'nombre', valeur: p.vacancesPct ?? VACANCES_PCT },
         { type: 'titre', label: 'Heures supplémentaires' },
-        { nom: 'reglesPerso', label: 'Personnaliser les règles', type: 'case', valeur: Boolean(p.regles), aide: 'Décoché : préréglage de la convention choisie.' },
-        { nom: 'seuilJour', label: 'Heures normales par jour', type: 'nombre' },
-        { nom: 'seuilSemaine', label: 'Heures normales par semaine', type: 'nombre' },
-        { nom: 'heuresPalier1', label: 'Premières heures supplémentaires de la semaine (nombre)', type: 'nombre', aide: '0 = pas de premier palier.' },
-        { nom: 'multPalier1', label: 'Multiplicateur de ces premières heures', type: 'nombre' },
-        { nom: 'multPalier2', label: 'Multiplicateur des heures suivantes', type: 'nombre' },
-        { nom: 'multSamedi', label: 'Samedi : multiplicateur', type: 'nombre', placeholder: 'Vide = comme les autres heures supp.' },
-        { nom: 'multDimanche', label: 'Dimanche : multiplicateur', type: 'nombre', placeholder: 'Vide = comme les autres heures supp.' },
-        { nom: 'multFerie', label: 'Férié : multiplicateur', type: 'nombre', placeholder: 'Vide = comme les autres heures supp.' },
-        { nom: 'reductionFerie', label: 'Heures retirées du seuil de la semaine par férié', type: 'nombre' },
+        ...champsRegles().map((c) => (c.nom === 'reglesPerso' ? { ...c, valeur: Boolean(p.regles) } : c)),
       ],
       surChangement: (form) => {
-        const perso = form.elements.reglesPerso.checked;
-        const pre = prereglage(form.elements.secteur.value, form.elements.isole.checked, form.elements.gite.checked);
         form.elements.gite.disabled = !form.elements.isole.checked;
-        const initial = form.dataset.pret !== '1';
-        for (const c of CHAMPS_REGLES) {
-          const el = form.elements[c];
-          if (!perso) el.value = fr(pre[c]);
-          else if (initial) el.value = fr((p.regles ?? {})[c] ?? pre[c]);
-          el.disabled = !perso;
-        }
-        form.dataset.pret = '1';
+        suivreRegles(form, p, (f) => [f.elements.secteur.value, f.elements.isole.checked, f.elements.gite.checked]);
       },
       valider: (v) => {
         if (v.tauxPerso !== null && v.tauxPerso <= 0) return 'Le taux personnalisé doit être plus grand que zéro.';
         if (v.vacancesPct === null || v.vacancesPct < 0 || v.vacancesPct > 30) return 'L\'indemnité de vacances doit être entre 0 et 30 %.';
-        if (r.profils.some((x) => x.id !== p.id && x.dateEffet === v.dateEffet)) return 'Un autre réglage commence déjà à cette date. Modifie-le plutôt.';
-        if (v.reglesPerso) {
-          if (!(v.seuilJour > 0) || !(v.seuilSemaine > 0)) return 'Les seuils par jour et par semaine doivent être plus grands que zéro.';
-          if (!(v.multPalier2 >= 1) || (v.heuresPalier1 > 0 && !(v.multPalier1 >= 1))) return 'Les multiplicateurs doivent être d\'au moins 1.';
-          for (const c of ['multSamedi', 'multDimanche', 'multFerie']) if (v[c] !== null && v[c] < 1) return 'Les multiplicateurs doivent être d\'au moins 1.';
-        }
-        return null;
+        if (r.profils.some((x) => x.id !== p.id && x.dateEffet === v.dateEffet)) return 'Une autre période commence déjà à cette date. Modifie-la plutôt.';
+        return validerRegles(v);
       },
     });
     if (!res) return;
     if (res.action === 'supprimer') {
-      const ok = await confirmer({ titre: 'Supprimer ce réglage ?', texte: 'Les semaines concernées seront recalculées avec le réglage précédent.', oui: 'Supprimer', danger: true });
+      const ok = await confirmer({ titre: 'Supprimer cette période ?', texte: 'Ses journées seront recalculées avec le réglage de la période précédente.', oui: 'Supprimer', danger: true });
       if (!ok) return;
       await majReglages((reg) => { reg.profils = reg.profils.filter((x) => x.id !== p.id); });
       return rafraichir();
     }
     const v = res.valeurs;
-    const regles = v.reglesPerso ? {
-      seuilJour: v.seuilJour, seuilSemaine: v.seuilSemaine, heuresPalier1: v.heuresPalier1 ?? 0,
-      multPalier1: v.multPalier1 ?? v.multPalier2, multPalier2: v.multPalier2,
-      multSamedi: v.multSamedi, multDimanche: v.multDimanche, multFerie: v.multFerie, reductionFerie: v.reductionFerie ?? 0,
-    } : null;
-    const profil = { id: p.id, dateEffet: v.dateEffet, employeur: v.employeur, secteur: v.secteur, isole: v.isole, gite: v.isole && v.gite, echelon: v.echelon, tauxPerso: v.tauxPerso, vacancesPct: v.vacancesPct, regles };
+    const profil = { id: p.id, dateEffet: v.dateEffet, employeur: v.employeur, secteur: v.secteur, isole: v.isole, gite: v.isole && v.gite, echelon: v.echelon, tauxPerso: v.tauxPerso, vacancesPct: v.vacancesPct, regles: lireRegles(v) };
     await majReglages((reg) => { reg.profils = [...reg.profils.filter((x) => x.id !== p.id), profil]; });
-    toast('Profil enregistré');
+    toast('Période corrigée');
     rafraichir();
   }
 
@@ -274,7 +484,7 @@ export function rendreReglages(racine, _param, naviguer) {
     rafraichir();
   }
 
-  // ----- Listes simples : modèles, chantiers, primes -----
+  // ----- Listes simples : horaires, chantiers, primes -----
   async function editerElement(cle, existant, definition) {
     const res = await formulaire({ ...definition, supprimer: Boolean(existant) });
     if (!res) return;
@@ -286,7 +496,7 @@ export function rendreReglages(racine, _param, naviguer) {
   }
 
   const defModele = (m) => ({
-    titre: m ? 'Modifier le modèle' : 'Nouveau modèle',
+    titre: m ? 'Modifier l\'horaire' : 'Nouvel horaire habituel',
     champs: [
       { nom: 'nom', label: 'Nom', valeur: m?.nom, requis: true, placeholder: 'Ex. : 10 h, 6 jours' },
       { nom: 'debut', label: 'Début', type: 'time', valeur: m?.debut ?? '07:00', requis: true },
@@ -370,12 +580,10 @@ export function rendreReglages(racine, _param, naviguer) {
     const b = ev.target.closest('button');
     if (!b) return;
     const d = b.dataset;
-    if (d.profil) return editerProfil(r.profils.find((p) => p.id === d.profil), false);
-    if (d.act === 'profil-nouveau') {
-      const auj = aujourdhui();
-      const base = [...r.profils].sort((a, c) => a.dateEffet.localeCompare(c.dateEffet)).filter((p) => p.dateEffet <= auj).at(-1) ?? r.profils[0];
-      return editerProfil({ ...base, id: nouvelId(), dateEffet: auj }, true);
-    }
+    if (d.page) return naviguer('reglages', d.page);
+    if (d.act === 'retour') return naviguer('reglages');
+    if (d.changer) return changer(d.changer);
+    if (d.profil) return editerProfil(r.profils.find((p) => p.id === d.profil));
     if (d.grille) return editerGrille(etat.grilles.find((g) => cleGrille(g) === d.grille));
     if (d.act === 'grille-nouvelle') return editerGrille(null);
     if (d.modele) return editerElement('modeles', r.modeles.find((x) => x.id === d.modele), defModele(r.modeles.find((x) => x.id === d.modele)));

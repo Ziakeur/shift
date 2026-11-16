@@ -1,4 +1,4 @@
-# Suivi d'heures de chantier (PWA)
+# Shift : suivi d'heures de chantier (PWA)
 
 ## À quoi sert l'app
 Application web installable sur Android (Chrome), utilisable sans réseau, pour un apprenti charpentier-menuisier au Québec :
@@ -32,8 +32,9 @@ L'utilisateur n'est pas développeur : répondre en français, court et direct, 
 | `js/carnet.js` | Périodes d'apprentissage, estimation, période du rapport mensuel (pur) |
 | `js/recap.js` | Totaux par semaine, mois et année, jalons et ligne du temps de l'accueil (pur) |
 | `js/db.js`, `js/etat.js` | IndexedDB, état en mémoire, export / import |
+| `js/graphique.js` | Dessin des courbes en SVG, sans bibliothèque |
 | `js/ui.js` | Formats, fenêtres de saisie, messages |
-| `js/ecrans/*.js` | Un fichier par écran : accueil, jour, semaine, paie, carnet, réglages |
+| `js/ecrans/*.js` | Un fichier par écran : accueil, jour, semaine, paie, carnet, réglages (un menu et une page par sujet : `#/reglages/emploi`, `#/reglages/horaires`…) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Mode hors ligne et installation |
 | `tests/*.test.js` | Tests automatiques des calculs |
 | `tools/serve.mjs`, `tools/icons.mjs` | Serveur local, génération des icônes |
@@ -56,7 +57,7 @@ node --test
 ```
 Tout doit être vert avant un commit. Toute nouvelle logique de calcul vient avec son test dans `tests/`.
 
-Les tests couvrent les calculs (durées, minuit, changement d'heure, seuils d'heures supplémentaires par convention, changement de taux en cours de semaine, primes, carnet, récapitulatif par période, jalons et ligne du temps). L'interface, l'import/export et le mode hors ligne se vérifient à la main dans Chrome.
+Les tests couvrent les calculs (durées, minuit, changement d'heure, seuils d'heures supplémentaires par convention, changement de taux en cours de semaine, changement de réglage à partir d'une date, primes, carnet, récapitulatif par période, suites et cumuls des courbes, graduations, jalons et ligne du temps). L'interface, l'import/export et le mode hors ligne se vérifient à la main dans Chrome.
 
 ## Mettre à jour une grille de taux
 Deux façons.
@@ -106,9 +107,12 @@ node tools/icons.mjs
 - Carnet : les crédits de formation (DEP) restent en réserve tant que l'apprenti ne les utilise pas. C'est lui qui choisit si et quand. Il inscrit les heures « déjà utilisées » ; le reste raccourcit la fin de l'apprentissage. Ne jamais appliquer les crédits d'office.
 - Saisie rapide : rien de ce qui dure (employeur, convention, échelon, taux) ne se ressaisit chaque jour. Le chantier de la veille est repris, les chantiers récents et les modèles d'horaire se choisissent en un appui, et l'écran Jour permet de basculer vers un profil déjà utilisé (« Changer » crée un profil daté du jour affiché, le passé ne bouge pas).
 - Effacer : toujours une confirmation, jamais de suppression en un seul appui (heures d'une journée, journée entière depuis Jour ou Semaine).
-- Accueil : écran d'ouverture par défaut (réglable : Accueil ou Jour, dans Réglages, Affichage). Récapitulatif par semaine, mois, année : heures et brut estimé comptés jour par jour (une semaine à cheval sur deux mois est partagée, les primes suivent les heures). Le net n'est **jamais estimé** : somme des nets saisis depuis les talons, avec le nombre de semaines couvertes ; un talon compte dans le mois où la semaine se termine.
+- Accueil : écran d'ouverture par défaut (réglable : Accueil ou Jour, dans Réglages, Affichage et semaine). En haut, le jour et la semaine en cours. Puis les courbes « Mes gains et mes heures » : montants (brut estimé, net reçu) et heures, par semaine, par mois ou en cumul, sur 3 mois, 1 an ou tout. Un appui sur une courbe affiche le détail de la période juste en dessous. Plus bas, repliés : « Tout le détail » (semaine, mois, année) et la ligne du temps.
+- Courbes : deux graphiques séparés, jamais deux unités sur le même axe. Une semaine sans heures vaut zéro, elle n'est pas sautée. Le net n'est **jamais estimé** : il n'est tracé que là où il est saisi ; un point vide signale un mois dont le net n'est saisi que pour une partie des semaines.
+- Récapitulatif : heures et brut estimé comptés jour par jour (une semaine à cheval sur deux mois est partagée, les primes suivent les heures) ; un talon compte dans le mois où la semaine se termine.
 - Ligne du temps (accueil) : un ruban à mesurer, une graduation par semaine, la plus récente en haut. Jalons factuels seulement : première journée, changements de profil à leur date d'effet, premier jour sur un chantier, changement de taux de la grille, paliers de 500 h saisies, dernière sauvegarde. Pas de jalon « passage de période » : la date où des crédits sont utilisés n'est pas connue de l'app, le changement d'échelon vient du profil.
-- Couleurs des barres d'heures (`--s1`, `--s15`, `--s2` dans `css/style.css`) : trio vérifié pour les daltoniens sur fond sombre et clair. Ne pas les remplacer par le jaune et l'orange des étiquettes, trop proches l'un de l'autre.
+- Réglages, « Mon emploi » : chaque ligne (employeur, convention, échelon, taux, heures supplémentaires, vacances) se change séparément, avec la date du changement. `changerProfils` (dans `js/calcul.js`) crée le profil daté et fait suivre le changement aux profils plus tardifs qui avaient encore l'ancienne valeur. La case « erreur de saisie » corrige le profil en cours sans créer de date. L'historique, en dessous, permet de corriger ou supprimer une période entière. Dans l'interface on dit « réglage » ou « période », jamais « profil ».
+- Couleurs des barres d'heures (`--s1`, `--s15`, `--s2`) et des courbes (`--c-brut`, `--c-net`), dans `css/style.css` : vérifiées pour les daltoniens sur fond sombre et clair. Ne pas les remplacer par le jaune et l'orange des étiquettes, trop proches l'un de l'autre.
 
 ## Limites connues, non couvertes
 - Réserve d'heures du résidentiel (art. 19.04), taux de nuit, industrie lourde, primes d'équipe.

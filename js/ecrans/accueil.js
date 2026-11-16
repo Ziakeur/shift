@@ -1,13 +1,17 @@
-// Écran « Accueil » : où j'en suis, récapitulatif par semaine, mois et année, ligne du temps de l'historique.
-// Les calculs sont dans js/recap.js. Le net affiché est la somme des nets saisis : il n'est jamais estimé.
+// Écran « Accueil » : où j'en suis, courbes des gains et des heures au fil du temps, détail en dessous.
+// Les calculs sont dans js/recap.js, le dessin des courbes dans js/graphique.js.
+// Le net affiché est la somme des nets saisis depuis les talons : il n'est jamais estimé.
 
 import { etat, semaine, debutSemaine, aujourdhui } from '../etat.js';
 import { APP } from '../config.js';
 import { formatDate, formatDuree, nomMois } from '../temps.js';
 import { SECTEURS, ECHELONS } from '../grilles.js';
-import { recapituler, jalons, ligneDuTemps } from '../recap.js';
-import { esc, argent } from '../ui.js';
+import { recapituler, jalons, ligneDuTemps, suiteContinue, totaliser, cumuler } from '../recap.js';
+import { courbes, indiceDepuisX } from '../graphique.js';
+import { esc, argent, nombre } from '../ui.js';
 
+const MODES = { semaines: 'Semaines', mois: 'Mois', cumul: 'Cumul' };
+const PLAGES = { '3m': { nom: '3 mois', semaines: 13, mois: 3 }, '1a': { nom: '1 an', semaines: 52, mois: 12 }, tout: { nom: 'Tout', semaines: Infinity, mois: Infinity } };
 const VUES = {
   semaines: { nom: 'Semaine', limite: 8 },
   mois: { nom: 'Mois', limite: 12 },
@@ -16,8 +20,17 @@ const VUES = {
 const SEGMENTS = [['s1', 'simples', 'Temps simple'], ['s15', 'demi', 'Temps et demi'], ['s2', 'double', 'Temps double'], ['sx', 'autres', 'Autre majoration']];
 
 // Ce qu'on regardait reste affiché quand on revient sur l'écran.
+let mode = 'semaines';
+let plage = '1a';
+let selection = null;
 let vue = 'semaines';
 let tout = false;
+const ouverts = new Set();
+let observateur = null;
+
+const argentRond = new Intl.NumberFormat('fr-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 });
+const signe = (n) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${argent(Math.abs(n))}`;
+const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
 
 // Toutes les semaines qui ont des heures ou un talon saisi, calculées, de la plus ancienne à la plus récente.
 function semainesDeLHistorique() {
@@ -38,9 +51,9 @@ function titreSemaineCourt(debut, fin) {
   return `${Number(debut.slice(8))}${memeMois ? '' : ` ${nomMois(debut, true)}`} au ${Number(fin.slice(8))} ${nomMois(fin, true)} ${fin.slice(0, 4)}`;
 }
 
-function titreLigne(l) {
-  if (vue === 'semaines') return titreSemaineCourt(l.debut, l.fin);
-  if (vue === 'mois') return `${nomMois(l.cle)} ${l.cle.slice(0, 4)}`;
+function titrePeriode(l, type) {
+  if (type === 'semaines') return titreSemaineCourt(l.debut, l.fin);
+  if (type === 'mois') return `${nomMois(l.cle)} ${l.cle.slice(0, 4)}`;
   return l.cle;
 }
 
@@ -66,11 +79,7 @@ function majorees(l) {
   return parts.length ? `dont ${parts.join(', ')}` : '';
 }
 
-const signe = (n) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${argent(Math.abs(n))}`;
-const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
-
-function lignesArgent(l) {
-  const estSemaine = vue === 'semaines';
+function lignesArgent(l, estSemaine) {
   let net;
   if (l.netNb) {
     const detail = estSemaine ? '' : `<small>saisi pour ${pluriel(l.netNb, 'semaine')} sur ${l.semaines}</small>`;
@@ -88,6 +97,14 @@ function lignesArgent(l) {
     ${talons}`;
 }
 
+function corpsLigne(l, type, echelle) {
+  return `
+    <span class="recap-tete"><strong>${esc(titrePeriode(l, type))}</strong><strong class="recap-h">${esc(formatDuree(l.minutes))}</strong></span>
+    ${barre(l, echelle)}
+    ${l.minutes ? `<small>${esc(repartition(l))}</small>` : ''}
+    ${lignesArgent(l, type === 'semaines')}`;
+}
+
 function htmlRecap(recap) {
   const lignes = recap[vue];
   const limite = tout ? Infinity : VUES[vue].limite;
@@ -95,17 +112,11 @@ function htmlRecap(recap) {
   const echelle = Math.max(1, ...lignes.map((l) => l.minutes));
   const balise = vue === 'semaines' ? 'button' : 'div';
   return `
-    <div class="segments" role="group" aria-label="Période du récapitulatif">
+    <div class="segments" role="group" aria-label="Période du détail">
       ${Object.entries(VUES).map(([cle, v]) => `<button class="puce ${cle === vue ? 'actif' : ''}" data-vue="${cle}" aria-pressed="${cle === vue}">${v.nom}</button>`).join('')}
     </div>
     <div class="recap">
-      ${visibles.map((l) => `
-        <${balise} class="recap-ligne" ${vue === 'semaines' ? `data-paie="${l.debut}"` : ''}>
-          <span class="recap-tete"><strong>${esc(titreLigne(l))}</strong><strong class="recap-h">${esc(formatDuree(l.minutes))}</strong></span>
-          ${barre(l, echelle)}
-          ${l.minutes ? `<small>${esc(repartition(l))}</small>` : ''}
-          ${lignesArgent(l)}
-        </${balise}>`).join('')}
+      ${visibles.map((l) => `<${balise} class="recap-ligne" ${vue === 'semaines' ? `data-paie="${l.debut}"` : ''}>${corpsLigne(l, vue, echelle)}</${balise}>`).join('')}
     </div>
     ${lignes.length > visibles.length ? `<button class="btn btn-large" data-act="tout">Afficher tout (${lignes.length})</button>` : ''}
     <p class="aide">Brut estimé par l'application, avant déductions et sans l'indemnité de vacances. Le net n'est jamais estimé : c'est la somme de ce que tu as saisi depuis tes talons${vue === 'semaines' ? ' (touche une semaine pour le saisir)' : ''}.</p>
@@ -151,15 +162,17 @@ export function rendreAccueil(racine, _param, naviguer) {
   const semaines = semainesDeLHistorique();
   const recap = recapituler(semaines, etat.semaines);
   const dernierExport = etat.reglages.sauvegarde.dernierExport;
-  const items = ligneDuTemps(semaines, jalons(semaines, {
+  const listeJalons = jalons(semaines, {
     profils: etat.reglages.profils,
     chantiers: etat.reglages.chantiers,
     secteurs: SECTEURS,
     echelons: ECHELONS,
     auj,
     dernierExport: dernierExport ? aujourdhui(new Date(dernierExport)) : null,
-  }), { debutCourant: courante });
+  });
+  const items = ligneDuTemps(semaines, listeJalons, { debutCourant: courante });
   const aDesAutres = items.some((i) => i.type === 'semaine' && i.autres > 0);
+  const aDeLHistorique = recap.semaines.length > 0;
 
   racine.innerHTML = `
     <header class="entete">
@@ -174,30 +187,170 @@ export function rendreAccueil(racine, _param, naviguer) {
         <div class="duo-case"><small>Aujourd'hui</small><strong class="${jAuj?.minutes ? '' : 'discret'}">${esc(formatDuree(jAuj?.minutes ?? 0))}</strong><small>${esc(quartAuj)}</small></div>
         <div class="duo-case"><small>Cette semaine</small><strong class="${sCourante.minutesTotal ? '' : 'discret'}">${esc(formatDuree(sCourante.minutesTotal))}</strong><small>${esc(argent(sCourante.brut))} brut estimé</small></div>
       </div>
-      <button class="btn btn-principal btn-large" data-act="jour">${jAuj?.saisie ? 'Modifier ma journée' : 'Saisir ma journée'}</button>
+      <button class="btn btn-principal btn-large" data-act="jour">${jAuj?.minutes ? 'Modifier ma journée' : 'Saisir ma journée'}</button>
     </section>
 
-    ${recap.semaines.length ? `
-    <section class="carte">
-      <h2>Récapitulatif</h2>
-      <div id="recap">${htmlRecap(recap)}</div>
-    </section>` : ''}
+    ${aDeLHistorique ? `
+    <section class="carte" id="courbes"></section>
 
-    ${items.length ? `
-    <section class="carte">
-      <h2>Ligne du temps</h2>
+    <details class="carte section" data-section="detail" ${ouverts.has('detail') ? 'open' : ''}>
+      <summary><span>Tout le détail</span><small>semaine, mois, année</small></summary>
+      <div id="recap">${htmlRecap(recap)}</div>
+    </details>
+
+    <details class="carte section" data-section="ruban" ${ouverts.has('ruban') ? 'open' : ''}>
+      <summary><span>Ligne du temps</span><small>${pluriel(listeJalons.length, 'jalon')}</small></summary>
       <p class="aide">Ton historique déroulé comme un ruban à mesurer : une graduation par semaine, la plus récente en haut. Touche une semaine pour l'ouvrir.</p>
       <div class="legende">
         ${SEGMENTS.filter(([classe]) => classe !== 'sx' || aDesAutres).map(([classe, , nom]) => `<span><i class="${classe}"></i>${nom}</span>`).join('')}
       </div>
       ${htmlRuban(items, auj)}
-    </section>` : `
+    </details>` : `
     <section class="carte">
-      <p class="aide">Ton récapitulatif et ta ligne du temps apparaîtront ici dès ta première journée saisie.</p>
+      <p class="aide">Tes courbes de gains et d'heures apparaîtront ici dès ta première journée saisie.</p>
     </section>`}
 
     <p class="aide centre">${esc(APP.mention)}</p>
   `;
+
+  for (const d of racine.querySelectorAll('details[data-section]')) {
+    d.addEventListener('toggle', () => (d.open ? ouverts.add(d.dataset.section) : ouverts.delete(d.dataset.section)));
+  }
+
+  // ----- Courbes -----
+  const zone = racine.querySelector('#courbes');
+  observateur?.disconnect();
+  observateur = null;
+
+  // Les périodes affichées, de la plus ancienne à la plus récente, selon le mode et la plage choisis.
+  function periodes() {
+    const type = mode === 'mois' ? 'mois' : 'semaines';
+    const suite = suiteContinue(recap[type], type, { jusqua: type === 'mois' ? auj.slice(0, 7) : courante });
+    return { type, lignes: suite.slice(-PLAGES[plage][type]) };
+  }
+
+  function etiquetteAxe(l, type) {
+    if (type === 'semaines') return `${Number(l.cle.slice(8))} ${nomMois(l.cle, true)}`;
+    return `${nomMois(l.cle, true)}${l.cle.endsWith('-01') ? ` ${l.cle.slice(0, 4)}` : ''}`;
+  }
+
+  function htmlLecture(l, type, cumul, echelle) {
+    const dansPeriode = (j) => (type === 'mois' ? j.date.slice(0, 7) === l.cle : j.date >= l.debut && j.date <= l.fin);
+    const js = listeJalons.filter(dansPeriode);
+    return `
+      <div class="lecture" aria-live="polite">
+        ${corpsLigne(l, type, echelle)}
+        ${cumul ? `
+          <span class="lecture-titre">Cumul jusque-là, sur la période affichée</span>
+          <span class="recap-argent"><span>Heures</span><b>${esc(formatDuree(cumul.minutes))}</b></span>
+          <span class="recap-argent"><span>Brut estimé</span><b>${esc(argent(cumul.brut))}</b></span>
+          <span class="recap-argent"><span>Net reçu<small>${cumul.netNb ? `saisi pour ${pluriel(cumul.netNb, 'semaine')} sur ${cumul.semaines}` : 'aucun net saisi'}</small></span><b>${cumul.netNb ? esc(argent(cumul.net)) : '—'}</b></span>` : ''}
+        ${js.map((j) => `<span class="r-jalon"><span>${esc(j.texte)}</span><small>${esc(formatDate(j.date, { jour: false }))}</small></span>`).join('')}
+        ${type === 'semaines' ? `
+          <span class="ligne-effacer">
+            <button class="btn btn-compact" data-sem="${l.debut}">Voir la semaine</button>
+            <button class="btn btn-compact" data-paie="${l.debut}">${l.netNb ? 'Voir le talon' : 'Saisir le talon'}</button>
+          </span>` : ''}
+      </div>`;
+  }
+
+  function dessinerCourbes() {
+    if (!zone) return;
+    const { type, lignes } = periodes();
+    const cumuls = mode === 'cumul' ? cumuler(lignes) : null;
+    const source = cumuls ?? lignes;
+    const n = lignes.length;
+    const choisi = Math.max(0, Math.min(n - 1, selection ?? n - 1));
+    const total = totaliser(lignes);
+    const aDuNet = total.netNb > 0;
+    const etiquettes = lignes.map((l) => esc(etiquetteAxe(l, type)));
+    const titrePlage = `${type === 'mois' ? '' : 'du '}${esc(titrePeriode(lignes[0], type))} ${type === 'mois' ? 'à' : 'au'} ${esc(titrePeriode(lignes.at(-1), type))}`;
+
+    zone.innerHTML = `
+      <h2>Mes gains et mes heures</h2>
+      <div class="segments" role="group" aria-label="Type de courbe">
+        ${Object.entries(MODES).map(([cle, nom]) => `<button class="puce ${cle === mode ? 'actif' : ''}" data-mode="${cle}" aria-pressed="${cle === mode}">${nom}</button>`).join('')}
+      </div>
+      <div class="segments" role="group" aria-label="Période affichée">
+        ${Object.entries(PLAGES).map(([cle, p]) => `<button class="puce puce-petite ${cle === plage ? 'actif' : ''}" data-plage="${cle}" aria-pressed="${cle === plage}">${p.nom}</button>`).join('')}
+      </div>
+
+      <div class="trio">
+        <div class="carte mini"><small>Brut estimé</small><strong>${esc(argentRond.format(total.brut))}</strong><small>${total.incomplet ? 'incomplet' : 'avant déductions'}</small></div>
+        <div class="carte mini"><small>Net reçu</small><strong class="${aDuNet ? '' : 'discret'}">${aDuNet ? esc(argentRond.format(total.net)) : '—'}</strong><small>${aDuNet ? `${total.netNb} sem. sur ${total.semaines}` : 'à saisir'}</small></div>
+        <div class="carte mini"><small>Heures</small><strong>${esc(formatDuree(total.minutes))}</strong><small>${type === 'mois' ? `${n} mois` : pluriel(n, 'semaine')}</small></div>
+      </div>
+
+      <div class="graphique-tete">
+        <strong>${mode === 'cumul' ? 'Montants cumulés' : 'Montants'}</strong>
+        <span class="legende">
+          <span class="c-brut"><i class="cle"></i>Brut estimé</span>
+          ${aDuNet ? '<span class="c-net"><i class="cle"></i>Net reçu (saisi)</span>' : ''}
+        </span>
+      </div>
+      <div class="graphique" id="g-argent" tabindex="0" aria-label="Courbe des montants. Flèches gauche et droite pour changer de période."></div>
+
+      <div class="graphique-tete"><strong>${mode === 'cumul' ? 'Heures cumulées' : 'Heures'}</strong></div>
+      <div class="graphique" id="g-heures" tabindex="0" aria-label="Courbe des heures. Flèches gauche et droite pour changer de période."></div>
+
+      <p class="aide">Touche ou glisse sur une courbe pour lire une ${type === 'mois' ? 'période' : 'semaine'}. ${aDuNet ? `Le net n'est tracé que là où tu l'as saisi ; il n'est jamais estimé.${mode === 'mois' && lignes.some((l) => l.netNb && l.netNb < l.semaines) ? ' Un point vide : le net de ce mois n\'est saisi que pour une partie des semaines.' : ''}` : 'Le net apparaîtra quand tu saisiras tes talons dans l\'écran Paie ; il n\'est jamais estimé.'}</p>
+      ${htmlLecture(lignes[choisi], type, cumuls?.[choisi] ?? null, Math.max(1, ...lignes.map((l) => l.minutes)))}`;
+
+    const gArgent = zone.querySelector('#g-argent');
+    const gHeures = zone.querySelector('#g-heures');
+    const largeur = Math.max(240, Math.floor(gArgent.clientWidth));
+    const dollarsAxe = (v) => (v >= 10000 ? `${nombre(v / 1000)} k` : nombre(v));
+
+    gArgent.innerHTML = courbes({
+      largeur,
+      etiquettes,
+      selection: choisi,
+      formatY: dollarsAxe,
+      description: `Brut estimé${aDuNet ? ' et net reçu' : ''} ${mode === 'cumul' ? 'cumulés' : type === 'mois' ? 'par mois' : 'par semaine'}, ${titrePlage}`,
+      series: [
+        { classe: 'c-brut', points: source.map((l) => l.brut), aire: mode === 'cumul' },
+        ...(aDuNet ? [{ classe: 'c-net', points: source.map((l) => (l.netNb ? l.net : null)), creux: cumuls ? null : lignes.map((l) => l.netNb < l.semaines) }] : []),
+      ],
+    });
+    gHeures.innerHTML = courbes({
+      largeur,
+      hauteur: 140,
+      etiquettes,
+      selection: choisi,
+      formatY: (v) => nombre(v),
+      description: `Heures ${mode === 'cumul' ? 'cumulées' : type === 'mois' ? 'par mois' : 'par semaine'}, ${titrePlage}`,
+      series: [{ classe: 'c-heures', points: source.map((l) => l.minutes / 60), aire: true }],
+    });
+
+    const choisir = (i) => {
+      if (i === choisi) return;
+      selection = i;
+      const actif = document.activeElement?.id;
+      dessinerCourbes();
+      if (actif === 'g-argent' || actif === 'g-heures') zone.querySelector(`#${actif}`)?.focus({ preventScroll: true });
+    };
+    for (const g of [gArgent, gHeures]) {
+      const viser = (ev) => choisir(indiceDepuisX(ev.clientX - g.getBoundingClientRect().left, largeur, n));
+      g.addEventListener('pointerdown', viser);
+      g.addEventListener('pointermove', (ev) => { if (ev.pointerType === 'mouse' || ev.buttons || ev.pressure > 0) viser(ev); });
+      g.addEventListener('keydown', (ev) => {
+        if (ev.key === 'ArrowLeft') { ev.preventDefault(); choisir(Math.max(0, choisi - 1)); }
+        if (ev.key === 'ArrowRight') { ev.preventDefault(); choisir(Math.min(n - 1, choisi + 1)); }
+      });
+    }
+  }
+
+  if (zone) {
+    dessinerCourbes();
+    // Si la largeur change (téléphone tourné, fenêtre redimensionnée), les courbes sont redessinées.
+    let largeurVue = zone.clientWidth;
+    observateur = new ResizeObserver(() => {
+      if (zone.clientWidth === largeurVue) return;
+      largeurVue = zone.clientWidth;
+      dessinerCourbes();
+    });
+    observateur.observe(zone);
+  }
 
   racine.onclick = (ev) => {
     const b = ev.target.closest('button');
@@ -205,6 +358,12 @@ export function rendreAccueil(racine, _param, naviguer) {
     if (b.dataset.act === 'jour') return naviguer('jour', auj);
     if (b.dataset.sem) return naviguer('semaine', b.dataset.sem);
     if (b.dataset.paie) return naviguer('paie', b.dataset.paie);
+    if (b.dataset.mode || b.dataset.plage) {
+      if (b.dataset.mode) mode = b.dataset.mode;
+      if (b.dataset.plage) plage = b.dataset.plage;
+      selection = null;
+      return dessinerCourbes();
+    }
     if (b.dataset.vue) { vue = b.dataset.vue; tout = false; }
     else if (b.dataset.act === 'tout') tout = true;
     else return;

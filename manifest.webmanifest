@@ -1,6 +1,6 @@
 {
-  "name": "Heures chantier",
-  "short_name": "Heures",
+  "name": "Shift",
+  "short_name": "Shift",
   "description": "Suivi d'heures personnel pour apprenti de la construction. Application personnelle, non officielle.",
   "lang": "fr-CA",
   "dir": "ltr",

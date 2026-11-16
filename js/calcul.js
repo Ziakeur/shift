@@ -15,6 +15,29 @@ export function profilPourDate(profils, date) {
   return trouve;
 }
 
+const pareil = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+// Applique un changement (employeur, convention, échelon, taux…) à partir d'une date.
+// Retourne une nouvelle liste de profils, triée par date d'effet.
+//   changements : champs du profil à remplacer, ex. { echelon: 'app2' }
+//   depuis      : date à partir de laquelle le changement vaut ('AAAA-MM-JJ')
+//   creerId     : fonction qui fournit l'identifiant du nouveau profil
+// Les journées d'avant `depuis` gardent leur réglage. Un profil plus tardif qui avait encore
+// l'ancienne valeur reçoit la nouvelle (le changement se poursuit) ; s'il avait déjà une autre valeur, il la garde.
+export function changerProfils(profils, changements, depuis, creerId) {
+  const base = profilPourDate(profils, depuis);
+  const liste = profils.map((p) => ({ ...p }));
+  if (!base) return liste;
+  for (const p of liste) {
+    if (p.dateEffet <= depuis) continue;
+    for (const cle of Object.keys(changements)) if (pareil(p[cle], base[cle])) p[cle] = changements[cle];
+  }
+  const memeDate = liste.find((p) => p.dateEffet === depuis);
+  if (memeDate) Object.assign(memeDate, changements);
+  else liste.push({ ...base, id: creerId(), dateEffet: depuis, ...changements });
+  return liste.sort((a, b) => a.dateEffet.localeCompare(b.dateEffet));
+}
+
 export function reglesDuProfil(profil) {
   return { ...prereglage(profil.secteur, profil.isole, profil.gite), ...(profil.regles ?? {}) };
 }

@@ -3,7 +3,7 @@
 // À chaque publication : augmenter `version` ici ET `VERSION` dans sw.js (voir CLAUDE.md).
 
 export const APP = {
-  nom: 'Heures chantier',
-  version: '0.2.0',
+  nom: 'Shift',
+  version: '0.3.0',
   mention: 'Application personnelle, non officielle. Aucun lien avec la Commission de la construction du Québec, les syndicats ou les associations patronales. Les montants sont des estimations : ton talon de paie et ton dossier officiel font foi.',
 };

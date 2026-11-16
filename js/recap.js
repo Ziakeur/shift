@@ -111,6 +111,48 @@ export function recapituler(semaines, talons = new Map()) {
   };
 }
 
+function moisSuivant(cle) {
+  const [a, m] = cle.split('-').map(Number);
+  return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`;
+}
+
+// Suite sans trou pour tracer une courbe : de la première période à la dernière (ou à `jusqua`),
+// de la plus ancienne à la plus récente. Une période sans heures vaut zéro, elle n'est pas sautée.
+//   lignes : `semaines` ou `mois` d'un récapitulatif ; type : 'semaines' ou 'mois'
+//   jusqua : début de la semaine en cours, ou mois en cours ('AAAA-MM')
+export function suiteContinue(lignes, type, { jusqua = null } = {}) {
+  if (!lignes.length) return [];
+  const parCle = new Map(lignes.map((l) => [l.cle, l]));
+  const cles = [...parCle.keys()].sort();
+  const fin = jusqua && jusqua > cles.at(-1) ? jusqua : cles.at(-1);
+  const suivante = type === 'mois' ? moisSuivant : (cle) => ajouterJours(cle, 7);
+  const suite = [];
+  for (let cle = cles[0]; cle <= fin; cle = suivante(cle)) {
+    suite.push(parCle.get(cle) ?? { ...sortie(ligneVide(cle)), ...(type === 'mois' ? {} : { debut: cle, fin: ajouterJours(cle, 6) }) });
+  }
+  return suite;
+}
+
+// Totaux d'une suite de lignes (pour les chiffres au-dessus des courbes).
+export function totaliser(lignes) {
+  const t = { minutes: 0, brutCents: 0, netCents: 0, netNb: 0, semaines: 0, incomplet: false };
+  for (const l of lignes) {
+    t.minutes += l.minutes;
+    t.brutCents += enCents(l.brut);
+    t.netCents += enCents(l.net);
+    t.netNb += l.netNb;
+    t.semaines += l.semaines;
+    if (l.incomplet) t.incomplet = true;
+  }
+  return { minutes: t.minutes, brut: t.brutCents / 100, net: t.netNb ? t.netCents / 100 : null, netNb: t.netNb, semaines: t.semaines, incomplet: t.incomplet };
+}
+
+// Cumul au fil du temps : chaque point additionne tout ce qui précède dans la suite.
+// Le net cumulé est celui des talons saisis jusque-là (`netNb` semaines sur `semaines`).
+export function cumuler(lignes) {
+  return lignes.map((l, i) => ({ cle: l.cle, ...totaliser(lignes.slice(0, i + 1)) }));
+}
+
 function changementsDeProfil(avant, p, secteurs, echelons) {
   const textes = [];
   if ((p.employeur ?? '') !== (avant.employeur ?? '')) textes.push(p.employeur ? `Employeur : ${p.employeur}` : 'Employeur retiré');

@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculerSemaine } from '../js/calcul.js';
 import { GRILLES, SECTEURS, ECHELONS } from '../js/grilles.js';
-import { joursVentiles, recapituler, jalons, ligneDuTemps } from '../js/recap.js';
+import { joursVentiles, recapituler, jalons, ligneDuTemps, suiteContinue, totaliser, cumuler } from '../js/recap.js';
+import { graduations, indiceDepuisX } from '../js/graphique.js';
 
 const profil = (extra = {}) => ({ id: 'p1', dateEffet: '2025-01-01', secteur: 'ic', isole: false, echelon: 'app1', tauxPerso: null, regles: null, vacancesPct: 13, ...extra });
 const quart = (debut = '07:00', fin = '17:30', pauseMin = 30, extra = {}) => ({ debut, fin, pauseMin, ...extra });
@@ -162,4 +163,56 @@ test('ligne du temps : de la plus récente à la plus ancienne, semaines vides r
   assert.equal(avecJalon[2].jalons.length, 1);
 
   assert.deepEqual(ligneDuTemps([], []), []);
+});
+
+test('courbes : suite sans trou, une semaine sans heures vaut zéro', () => {
+  const r = recapituler([
+    semaine('2026-11-01', { '2026-11-02': quart() }),
+    semaine('2026-11-22', { '2026-11-23': quart() }),
+  ], { '2026-11-22': { netReel: 240 } });
+  const suite = suiteContinue(r.semaines, 'semaines', { jusqua: '2026-11-29' });
+  assert.deepEqual(suite.map((l) => [l.cle, l.minutes, l.brut, l.net]), [
+    ['2026-11-01', 600, 301, null],
+    ['2026-11-08', 0, 0, null],
+    ['2026-11-15', 0, 0, null],
+    ['2026-11-22', 600, 301, 240],
+    ['2026-11-29', 0, 0, null],
+  ]);
+  assert.equal(suite[1].fin, '2026-11-14');
+  assert.deepEqual(suiteContinue([], 'semaines'), []);
+});
+
+test('courbes : suite de mois, passage d\'année compris', () => {
+  const r = recapituler([
+    semaine('2026-11-01', { '2026-11-02': quart() }),
+    semaine('2027-01-03', { '2027-01-04': quart() }),
+  ]);
+  const suite = suiteContinue(r.mois, 'mois', { jusqua: '2027-02' });
+  assert.deepEqual(suite.map((l) => [l.cle, l.minutes]), [['2026-11', 600], ['2026-12', 0], ['2027-01', 600], ['2027-02', 0]]);
+});
+
+test('courbes : totaux et cumul, le net cumulé ne compte que les talons saisis', () => {
+  const r = recapituler([
+    semaine('2026-11-01', { '2026-11-02': quart() }),
+    semaine('2026-11-08', { '2026-11-09': quart() }),
+    semaine('2026-11-15', { '2026-11-16': quart() }),
+  ], { '2026-11-08': { netReel: 240.1 }, '2026-11-15': { netReel: 240.2 } });
+  const suite = suiteContinue(r.semaines, 'semaines');
+  assert.deepEqual(totaliser(suite), { minutes: 1800, brut: 903, net: 480.3, netNb: 2, semaines: 3, incomplet: false });
+  assert.deepEqual(cumuler(suite).map((l) => [l.cle, l.minutes, l.brut, l.net, l.netNb, l.semaines]), [
+    ['2026-11-01', 600, 301, null, 0, 1],
+    ['2026-11-08', 1200, 602, 240.1, 1, 2],
+    ['2026-11-15', 1800, 903, 480.3, 2, 3],
+  ]);
+});
+
+test('graphique : graduations rondes et point le plus proche du doigt', () => {
+  assert.deepEqual(graduations(2091.95), [0, 1000, 2000, 3000]);
+  assert.deepEqual(graduations(55), [0, 20, 40, 60]);
+  assert.deepEqual(graduations(40), [0, 10, 20, 30, 40]);
+  assert.deepEqual(graduations(0), [0, 1]);
+  assert.equal(indiceDepuisX(0, 360, 10), 0);
+  assert.equal(indiceDepuisX(360, 360, 10), 9);
+  assert.equal(indiceDepuisX(46 + 300 / 2, 360, 11), 5);
+  assert.equal(indiceDepuisX(100, 360, 1), 0);
 });

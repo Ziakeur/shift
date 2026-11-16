@@ -8,7 +8,7 @@ import { rendreJour } from './ecrans/jour.js';
 import { rendreSemaine } from './ecrans/semaine.js';
 import { rendrePaie } from './ecrans/paie.js';
 import { rendreCarnet } from './ecrans/carnet.js';
-import { rendreReglages } from './ecrans/reglages.js';
+import { rendreReglages, PAGES_REGLAGES } from './ecrans/reglages.js';
 
 const ECRANS = {
   accueil: { rendre: rendreAccueil },
@@ -16,7 +16,7 @@ const ECRANS = {
   semaine: { rendre: rendreSemaine, defaut: () => debutSemaine(aujourdhui()), normaliser: (d) => debutSemaine(d) },
   paie: { rendre: rendrePaie, defaut: () => debutSemaine(aujourdhui()), normaliser: (d) => debutSemaine(d) },
   carnet: { rendre: rendreCarnet },
-  reglages: { rendre: rendreReglages },
+  reglages: { rendre: rendreReglages, pages: PAGES_REGLAGES },
 };
 
 const racine = document.getElementById('ecran');
@@ -27,7 +27,10 @@ let dernier = { ecran: null, param: null };
 function lireRoute() {
   const [, ecran, param] = location.hash.split('/');
   const ouverture = etat.reglages?.ecranOuverture === 'jour' ? 'jour' : 'accueil';
-  return { ecran: ECRANS[ecran] ? ecran : ouverture, param: DATE.test(param ?? '') ? param : null };
+  const nom = ECRANS[ecran] ? ecran : ouverture;
+  // Le paramètre est une date, ou le nom d'une page pour les écrans qui en ont (réglages).
+  const valide = ECRANS[nom].pages ? ECRANS[nom].pages.includes(param) : DATE.test(param ?? '');
+  return { ecran: nom, param: valide ? param : null };
 }
 
 // Va à un écran. Si on y est déjà, le redessine.
@@ -63,7 +66,7 @@ function afficher() {
     a.classList.toggle('actif', o === ecran);
     if (o === ecran) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     if (o === 'semaine' || o === 'paie') a.href = `#/${o}/${debutSemaine(dateCourante)}`;
-    if (o === 'jour') a.href = ecran === 'jour' || !param ? '#/jour' : `#/jour/${dateCourante}`;
+    if (o === 'jour') a.href = ecran === 'jour' || !DATE.test(param ?? '') ? '#/jour' : `#/jour/${dateCourante}`;
   }
   majBandeau();
 }
@@ -84,7 +87,7 @@ function majBandeau() {
     el.hidden = false;
   } else if (sauvegardeEnRetard() && lireRoute().ecran !== 'reglages') {
     const n = joursDepuisSauvegarde();
-    el.innerHTML = `<span>${n === null ? 'Aucune sauvegarde pour l\'instant.' : `Dernière sauvegarde il y a ${n} jours.`}</span><a class="btn btn-principal" href="#/reglages">Sauvegarder</a>`;
+    el.innerHTML = `<span>${n === null ? 'Aucune sauvegarde pour l\'instant.' : `Dernière sauvegarde il y a ${n} jours.`}</span><a class="btn btn-principal" href="#/reglages/sauvegarde">Sauvegarder</a>`;
     el.hidden = false;
   } else {
     el.hidden = true;

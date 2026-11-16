@@ -110,3 +110,6 @@ node tools/icons.mjs
 - Taux 2027-2028 en institutionnel-commercial et en génie civil, annexe D-1 : non lus, absents.
 - Un seul quart par jour.
 - Poids d'une heure supplémentaire au carnet : hypothèse 1 h = 1 h, réglable, à vérifier auprès de la CCQ.
+
+## Travail en cours
+La liste des demandes en attente et des vérifications restantes est dans `A_FAIRE.md`. La lire avant de reprendre le travail.

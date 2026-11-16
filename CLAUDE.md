@@ -37,7 +37,7 @@ L'utilisateur n'est pas développeur : répondre en français, court et direct, 
 | `js/ecrans/*.js` | Un fichier par écran : accueil, jour, semaine, paie, carnet, réglages (un menu et une page par sujet : `#/reglages/emploi`, `#/reglages/horaires`…) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Mode hors ligne et installation |
 | `tests/*.test.js` | Tests automatiques des calculs |
-| `tools/serve.mjs`, `tools/icons.mjs` | Serveur local, génération des icônes |
+| `tools/serve.mjs`, `tools/icons.mjs`, `tools/donnees-fictives.mjs` | Serveur local, génération des icônes, sauvegarde de démonstration (données inventées, fichier `sauvegarde-fictive.json` jamais commité) |
 
 Les fichiers marqués « pur » ne touchent ni à l'écran ni au stockage : toute nouvelle règle de calcul va là, avec son test.
 

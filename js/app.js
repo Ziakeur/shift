@@ -3,6 +3,7 @@
 import { etat, charger, debutSemaine, sauvegardeEnRetard, joursDepuisSauvegarde, aujourdhui } from './etat.js';
 import { APP } from './config.js';
 import { esc, toast } from './ui.js';
+import { deverrouiller } from './nip.js';
 import { rendreAccueil } from './ecrans/accueil.js';
 import { rendreJour } from './ecrans/jour.js';
 import { rendreSemaine } from './ecrans/semaine.js';
@@ -21,6 +22,7 @@ const ECRANS = {
 
 const racine = document.getElementById('ecran');
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const DELAI_VERROU_MS = 60 * 1000; // absence après laquelle le NIP est redemandé
 let dernier = { ecran: null, param: null };
 
 // Sans adresse précise, on ouvre l'écran choisi dans les réglages (Accueil ou Jour).
@@ -75,6 +77,7 @@ function appliquerTheme() {
   const theme = etat.reglages.theme;
   const sombre = theme === 'sombre' || (theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = sombre ? 'sombre' : 'clair';
+  document.documentElement.dataset.fond = etat.reglages.fond === 'uni' ? 'uni' : 'plan';
   document.querySelector('meta[name="theme-color"]').content = sombre ? '#101214' : '#f4f2ec';
 }
 
@@ -128,6 +131,11 @@ async function demarrer() {
   }
   document.title = APP.nom;
   appliquerTheme();
+  // Verrou par NIP : rien ne s'affiche tant que le bon NIP n'est pas entré.
+  if (etat.verrou) {
+    racine.innerHTML = '';
+    await deverrouiller();
+  }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', appliquerTheme);
   window.addEventListener('hashchange', afficher);
   document.addEventListener('reglages-changes', appliquerTheme);
@@ -137,8 +145,27 @@ async function demarrer() {
   });
   // Si l'app reste ouverte jusqu'au lendemain, l'écran Jour suit la date.
   let jourAffiche = aujourdhui();
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'visible') return;
+  let cacheDepuis = null;
+  let verrouille = false;
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible') { cacheDepuis = Date.now(); return; }
+    // De retour après plus d'une minute ailleurs : le NIP est redemandé.
+    const absence = cacheDepuis === null ? 0 : Date.now() - cacheDepuis;
+    cacheDepuis = null;
+    if (etat.verrou && !verrouille && absence > DELAI_VERROU_MS) {
+      verrouille = true;
+      for (const d of document.querySelectorAll('dialog.feuille[open]')) d.close();
+      racine.onclick = null;
+      racine.onchange = null;
+      racine.oninput = null;
+      racine.innerHTML = '';
+      await deverrouiller();
+      verrouille = false;
+      jourAffiche = aujourdhui();
+      afficher();
+      return;
+    }
+    if (verrouille) return;
     const auj = aujourdhui();
     if (auj !== jourAffiche) { jourAffiche = auj; if (!lireRoute().param) afficher(); }
   });

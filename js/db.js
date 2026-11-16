@@ -1,7 +1,7 @@
 // Stockage sur l'appareil (IndexedDB). Trois magasins :
 //   jours    : une fiche par date ('AAAA-MM-JJ')
 //   semaines : brut et net réels du talon, par premier jour de semaine
-//   kv       : réglages (un seul document, clé 'reglages')
+//   kv       : réglages (clé 'reglages'), verrou par NIP (clés 'verrou' et 'verrou-essais')
 
 const NOM = 'suivi-heures';
 const VERSION = 1;
@@ -60,16 +60,22 @@ export function supprimer(magasin, cle) {
 }
 
 // Remplace tout le contenu en une seule transaction : soit tout passe, soit rien ne change.
+// Le verrou par NIP (autres clés de `kv`) reste en place : restaurer une sauvegarde ne l'enlève pas.
 export function remplacerTout({ jours, semaines, reglages }) {
   return transaction(['jours', 'semaines', 'kv'], 'readwrite', (tx) => {
     const sj = tx.objectStore('jours');
     const ss = tx.objectStore('semaines');
-    const sk = tx.objectStore('kv');
     sj.clear();
     ss.clear();
-    sk.clear();
     for (const j of jours) sj.put(j);
     for (const s of semaines) ss.put(s);
-    sk.put(reglages, 'reglages');
+    tx.objectStore('kv').put(reglages, 'reglages');
+  });
+}
+
+// Efface tout ce que l'app garde sur cet appareil : journées, talons, réglages et verrou.
+export function viderTout() {
+  return transaction(['jours', 'semaines', 'kv'], 'readwrite', (tx) => {
+    for (const magasin of ['jours', 'semaines', 'kv']) tx.objectStore(magasin).clear();
   });
 }

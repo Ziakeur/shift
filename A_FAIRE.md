@@ -1,9 +1,12 @@
 # À faire
 
-État au 16 novembre 2026 : version 0.4.0, nom « Shift », en ligne sur https://ziakeur.github.io/shift/. Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
+État au 16 novembre 2026 : version 0.5.0 en local (verrou par NIP, décor), version 0.4.0 en ligne sur https://ziakeur.github.io/shift/, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
 Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAUDE.md`.
 
 ## 0. En attente de l'avis de l'utilisateur
+- **Version 0.5.0, commitée en local, PAS encore en ligne** (le site public est en 0.4.0) : verrou par NIP et décor « plan de chantier ». Attendre l'accord de l'utilisateur avant `git push`.
+- **NIP** : testé dans un Chrome de test (activer, ouvrir, NIP faux, blocage après 5 essais, retour après une absence, NIP oublié, hors ligne). Pas testé sur un vrai téléphone : bouton retour d'Android sur l'écran du NIP, retour dans l'app après une minute.
+- **Fond** : la demande était « peut-être un fond en rapport avec la construction ». Fait : quadrillage de plan, ferme de toit sur l'accueil, ossature sur l'écran du NIP. À faire valider ; se coupe dans Réglages, Affichage et semaine.
 - **Accueil** (version 0.4.0) : courbes lissées, bandeau de chiffres qui suit le doigt, bâtons de la semaine en cours. C'est toujours un essai : demander ce qui plaît ou non avant d'aller plus loin.
 - **Icône** : faite à partir de `icons/source-shift.png`. À voir sur le téléphone une fois l'app installée (icône ronde ou carrée selon le téléphone, écran de démarrage).
 - **Chantiers** : ajout non demandé, à confirmer : un chantier noté sur des journées ne peut plus être supprimé (seulement renommé), pour ne pas perdre la trace. Si ça gêne, retirer `supprimer: !usage.nb` dans `defChantier` (`js/ecrans/reglages.js`).

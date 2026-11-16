@@ -7,6 +7,7 @@ import { ajouterJours, formatDate } from '../temps.js';
 import { tauxDuProfil, reglesDuProfil, profilPourDate, changerProfils } from '../calcul.js';
 import { SECTEURS, ECHELONS, GRILLES_MANQUANTES, PROCHAINE_HAUSSE, prereglage, cleGrille, VACANCES_PCT } from '../grilles.js';
 import { esc, argent, nombre, toast, formulaire, confirmer, telecharger, partager } from '../ui.js';
+import { activerNip, changerNip, desactiverNip } from '../nip.js';
 
 const UNITES = { heure: 'par heure travaillée', jour: 'par jour travaillé', semaine: 'par semaine travaillée' };
 const CHAMPS_REGLES = ['seuilJour', 'seuilSemaine', 'heuresPalier1', 'multPalier1', 'multPalier2', 'multSamedi', 'multDimanche', 'multFerie', 'reductionFerie'];
@@ -18,7 +19,7 @@ const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
 const GROUPES = [
   { titre: 'Mon travail', pages: ['emploi', 'horaires', 'chantiers', 'primes'] },
   { titre: 'Règles de calcul', pages: ['taux', 'feries'] },
-  { titre: 'Application', pages: ['affichage', 'sauvegarde', 'apropos'] },
+  { titre: 'Application', pages: ['affichage', 'verrou', 'sauvegarde', 'apropos'] },
 ];
 const TITRES = {
   emploi: 'Mon emploi',
@@ -28,6 +29,7 @@ const TITRES = {
   taux: 'Taux horaires',
   feries: 'Jours fériés',
   affichage: 'Affichage et semaine',
+  verrou: 'Verrouillage par NIP',
   sauvegarde: 'Sauvegarde',
   apropos: 'À propos',
 };
@@ -87,6 +89,7 @@ function resumePage(page, auj) {
   if (page === 'taux') return 'Les grilles de salaire, avec leur date et leur source';
   if (page === 'feries') return `${pluriel(r.feries.length, 'date')} : heures majorées ces jours-là`;
   if (page === 'affichage') return `Thème ${r.theme === 'clair' ? 'clair' : r.theme === 'auto' ? 'comme le téléphone' : 'sombre'} · semaine de paie du ${r.debutSemaine === 1 ? 'lundi au dimanche' : 'dimanche au samedi'}`;
+  if (page === 'verrou') return etat.verrou ? 'Activé : NIP demandé à l\'ouverture' : 'Désactivé';
   if (page === 'sauvegarde') return `Dernière sauvegarde : ${texteSauvegarde()}`;
   return `${APP.nom}, version ${APP.version}`;
 }
@@ -241,6 +244,10 @@ function htmlPage(page, auj) {
         <option value="clair" ${r.theme === 'clair' ? 'selected' : ''}>Clair (plein soleil)</option>
         <option value="auto" ${r.theme === 'auto' ? 'selected' : ''}>Comme le téléphone</option>
       </select></label>
+      <label class="champ"><span>Fond de l'app</span><select id="fond">
+        <option value="plan" ${r.fond !== 'uni' ? 'selected' : ''}>Plan de chantier (quadrillage et charpente)</option>
+        <option value="uni" ${r.fond === 'uni' ? 'selected' : ''}>Uni, sans décor</option>
+      </select></label>
       <label class="champ"><span>À l'ouverture, afficher</span><select id="ecran-ouverture">
         <option value="accueil" ${r.ecranOuverture !== 'jour' ? 'selected' : ''}>L'accueil (gains, heures, historique)</option>
         <option value="jour" ${r.ecranOuverture === 'jour' ? 'selected' : ''}>La saisie du jour (un appui de moins)</option>
@@ -253,6 +260,21 @@ function htmlPage(page, auj) {
       </select></label>
       <p class="aide">Ta semaine normale de travail reste du lundi au vendredi. Ce réglage décide dans quelle semaine tombent le samedi et le dimanche : les totaux de l'app suivent alors les mêmes dates que ton talon de paie, et les heures de fin de semaine sont comptées avec la bonne semaine.</p>
       <p class="aide">Dans la construction, les semaines sont comptées du dimanche au samedi : c'est le découpage du rapport que l'employeur remet chaque mois à la CCQ. Si les dates de ton talon vont du lundi au dimanche, change ce réglage.</p>
+    </section>`;
+  if (page === 'verrou') return `
+    <section class="carte">
+      <p><strong>${etat.verrou ? `NIP activé (${etat.verrou.longueur} chiffres).` : 'NIP désactivé.'}</strong> ${etat.verrou ? 'L\'app le demande à l\'ouverture, et quand tu y reviens après plus d\'une minute ailleurs.' : 'L\'app s\'ouvre directement.'}</p>
+      ${etat.verrou ? `
+        <button class="btn btn-large" data-act="nip-changer">Changer le NIP</button>
+        <button class="btn btn-large btn-danger" data-act="nip-desactiver">Désactiver le NIP</button>` : `
+        <button class="btn btn-large btn-principal" data-act="nip-activer">Activer un NIP</button>`}
+    </section>
+    <section class="carte">
+      <h2>${etat.verrou ? 'À savoir' : 'À savoir avant de l\'activer'}</h2>
+      <p class="aide"><strong>NIP oublié : les données de ce téléphone sont effacées.</strong> Le NIP n'est enregistré nulle part, personne ne peut te le renvoyer. Il faudra tout effacer, puis restaurer ta dernière sauvegarde. Dernière sauvegarde : <strong>${esc(texteSauvegarde())}</strong>.</p>
+      <p class="aide">C'est un verrou d'écran : il empêche quelqu'un qui prend ton téléphone d'ouvrir l'app. Il ne chiffre pas les données et ne protège pas le fichier de sauvegarde, qui reste lisible par qui l'a entre les mains.</p>
+      <p class="aide">Après 5 NIP faux à la suite, il faut attendre avant de réessayer : 30 secondes, puis de plus en plus longtemps.</p>
+      <a class="btn btn-large" href="#/reglages/sauvegarde">Faire une sauvegarde</a>
     </section>`;
   if (page === 'sauvegarde') return `
     <section class="carte">
@@ -626,6 +648,9 @@ export function rendreReglages(racine, param, naviguer) {
       return undefined;
     }
     if (d.act === 'import') return $('#fichier-import').click();
+    if (d.act === 'nip-activer') return (await activerNip()) && rafraichir();
+    if (d.act === 'nip-changer') return (await changerNip()) && rafraichir();
+    if (d.act === 'nip-desactiver') return (await desactiverNip()) && rafraichir();
     return undefined;
   };
 
@@ -633,6 +658,9 @@ export function rendreReglages(racine, param, naviguer) {
     const t = ev.target;
     if (t.id === 'theme') {
       await majReglages((reg) => { reg.theme = t.value; });
+      document.dispatchEvent(new CustomEvent('reglages-changes'));
+    } else if (t.id === 'fond') {
+      await majReglages((reg) => { reg.fond = t.value; });
       document.dispatchEvent(new CustomEvent('reglages-changes'));
     } else if (t.id === 'ecran-ouverture') {
       await majReglages((reg) => { reg.ecranOuverture = t.value; });

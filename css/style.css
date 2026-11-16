@@ -438,3 +438,54 @@ dialog.feuille::backdrop { background: rgb(0 0 0 / .6); }
 /* Liens tactiles : hauteur minimale */
 .retour-auj { min-height: 44px; }
 .sources a, .aide a { display: inline-block; padding: 6px 0; }
+
+/* Décor « plan de chantier » : quadrillage de plan en fond, dessins de charpente au trait.
+   Se coupe dans Réglages, Affichage et semaine (fond « uni »). */
+:root { --trait-fin: rgb(124 196 255 / .05); --trait-fort: rgb(124 196 255 / .1); }
+:root[data-theme="clair"] { --trait-fin: rgb(11 92 171 / .06); --trait-fort: rgb(11 92 171 / .12); }
+html[data-fond="plan"] body, html[data-fond="plan"] dialog.verrou {
+  background-image:
+    linear-gradient(var(--trait-fort) 1px, transparent 1px), linear-gradient(90deg, var(--trait-fort) 1px, transparent 1px),
+    linear-gradient(var(--trait-fin) 1px, transparent 1px), linear-gradient(90deg, var(--trait-fin) 1px, transparent 1px);
+  background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+  background-position: center top;
+}
+body { min-height: 100dvh; }
+.decor { color: var(--accent); }
+.decor svg { display: block; width: 100%; height: auto; }
+.decor line { stroke: currentColor; stroke-width: 2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.entete-toit { flex-direction: column; gap: 0; padding-top: 4px; }
+.toit { width: min(280px, 72%); opacity: .85; }
+
+/* Verrou par NIP : clavier plein écran */
+dialog.verrou {
+  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0;
+  background-color: var(--fond); color: var(--texte); overflow: auto;
+}
+dialog.verrou::backdrop { background: var(--fond); }
+.verrou-corps {
+  min-height: 100%; max-width: 420px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 16px;
+  padding: calc(20px + env(safe-area-inset-top)) 24px calc(20px + env(safe-area-inset-bottom));
+}
+.verrou-haut { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.verrou-dessin { width: min(300px, 78%); opacity: .9; }
+.verrou-haut h1 { margin: 4px 0 0; font-size: 1.7rem; }
+.verrou-texte { color: var(--discret); }
+.verrou-points { display: flex; gap: 14px; min-height: 20px; margin-top: 8px; }
+.verrou-points i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--discret); }
+.verrou-points i.plein { background: var(--accent); border-color: var(--accent); }
+.verrou-erreur { min-height: 1.4em; color: var(--danger); font-weight: 600; }
+.verrou-bas { width: 100%; max-width: 330px; display: flex; flex-direction: column; gap: 12px; }
+.verrou-clavier { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.verrou-clavier button {
+  height: 68px; border-radius: 18px; border: 1px solid var(--bord); background: var(--surface);
+  font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.verrou-clavier button:active { background: var(--surface-2); transform: scale(.97); }
+.verrou-clavier .touche-texte { font-size: .9rem; font-weight: 600; background: none; border-color: transparent; color: var(--info); }
+.verrou-clavier .touche-texte[data-act="effacer"] { font-size: 1.6rem; color: var(--texte); }
+dialog.verrou.bloque .verrou-clavier button[data-chiffre] { opacity: .35; }
+@media (prefers-reduced-motion: no-preference) {
+  dialog.verrou.secoue .verrou-points { animation: secoue .35s; }
+  @keyframes secoue { 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
+}

@@ -8,6 +8,7 @@ import { formatDate, formatDuree, nomMois, nomJour } from '../temps.js';
 import { SECTEURS, ECHELONS } from '../grilles.js';
 import { recapituler, joursVentiles, jalons, ligneDuTemps, suiteContinue, totaliser, cumuler } from '../recap.js';
 import { courbes, indiceDepuisX } from '../graphique.js';
+import { dessinFerme } from '../decor.js';
 import { esc, argent, nombre } from '../ui.js';
 
 const MODES = { semaines: 'Semaines', mois: 'Mois', cumul: 'Cumul' };
@@ -205,9 +206,11 @@ export function rendreAccueil(racine, _param, naviguer) {
   const items = ligneDuTemps(semaines, listeJalons, { debutCourant: courante });
   const aDesAutres = items.some((i) => i.type === 'semaine' && i.autres > 0);
   const aDeLHistorique = recap.semaines.length > 0;
+  const decor = etat.reglages.fond !== 'uni';
 
   racine.innerHTML = `
-    <header class="entete">
+    <header class="entete ${decor ? 'entete-toit' : ''}">
+      ${decor ? `<div class="decor toit">${dessinFerme()}</div>` : ''}
       <div class="entete-titre">
         <strong>${esc(APP.nom)}</strong>
         <small>${esc(formatDate(auj, { annee: true }))}</small>

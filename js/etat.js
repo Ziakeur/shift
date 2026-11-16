@@ -14,6 +14,8 @@ export const etat = {
   semaines: new Map(),
   reglages: null,
   grilles: [],
+  verrou: null,   // empreinte du NIP si le verrou est activé (voir js/verrou.js), sinon null
+  essais: null,   // NIP faux à la suite : { echecs, dernier }
 };
 
 export function nouvelId() {
@@ -24,6 +26,7 @@ export function reglagesParDefaut() {
   return {
     debutSemaine: 0,
     theme: 'sombre',
+    fond: 'plan',
     ecranOuverture: 'accueil',
     profils: [{
       id: nouvelId(), dateEffet: '2025-01-01', employeur: '', secteur: 'ic', isole: false, gite: false,
@@ -57,12 +60,50 @@ function normaliser(r) {
 }
 
 export async function charger() {
-  const [jours, semaines, reglages] = await Promise.all([db.lireTout('jours'), db.lireTout('semaines'), db.lireCle('kv', 'reglages')]);
+  const [jours, semaines, reglages, verrou, essais] = await Promise.all([
+    db.lireTout('jours'), db.lireTout('semaines'), db.lireCle('kv', 'reglages'), db.lireCle('kv', 'verrou'), db.lireCle('kv', 'verrou-essais'),
+  ]);
   etat.jours = new Map(jours.map((j) => [j.date, j]));
   etat.semaines = new Map(semaines.map((s) => [s.debut, s]));
   etat.reglages = normaliser(reglages);
   etat.grilles = fusionnerGrilles(etat.reglages.grillesPerso);
+  etat.verrou = verrou ?? null;
+  etat.essais = essais ?? null;
   if (!reglages) await db.ecrire('kv', etat.reglages, 'reglages');
+}
+
+// ---------------------------------------------------------------------------
+// Verrou par NIP. Rangé à part des réglages : il ne part jamais dans une sauvegarde.
+
+export async function enregistrerVerrou(verrou) {
+  etat.verrou = verrou;
+  etat.essais = null;
+  await db.ecrire('kv', verrou, 'verrou');
+  await db.supprimer('kv', 'verrou-essais');
+}
+
+export async function retirerVerrou() {
+  etat.verrou = null;
+  etat.essais = null;
+  await db.supprimer('kv', 'verrou');
+  await db.supprimer('kv', 'verrou-essais');
+}
+
+// Compte les NIP faux à la suite (gardé même si l'app est fermée puis rouverte). Un bon NIP remet à zéro.
+export async function noterEssai(reussi, maintenant = Date.now()) {
+  if (reussi) {
+    if (!etat.essais) return;
+    etat.essais = null;
+    await db.supprimer('kv', 'verrou-essais');
+    return;
+  }
+  etat.essais = { echecs: (etat.essais?.echecs ?? 0) + 1, dernier: maintenant };
+  await db.ecrire('kv', etat.essais, 'verrou-essais');
+}
+
+// NIP oublié : efface tout ce que l'app garde sur cet appareil. Ne se rattrape qu'avec une sauvegarde.
+export async function effacerToutesLesDonnees() {
+  await db.viderTout();
 }
 
 export async function enregistrerJour(jour) {

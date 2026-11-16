@@ -1,0 +1,8 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+# Sauvegardes personnelles : ne jamais commiter
+sauvegarde-*.json
+heures-*.csv
+*.code-workspace

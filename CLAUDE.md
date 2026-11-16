@@ -57,7 +57,7 @@ node --test
 ```
 Tout doit être vert avant un commit. Toute nouvelle logique de calcul vient avec son test dans `tests/`.
 
-Les tests couvrent les calculs (durées, minuit, changement d'heure, seuils d'heures supplémentaires par convention, changement de taux en cours de semaine, changement de réglage à partir d'une date, primes, carnet, récapitulatif par période, suites et cumuls des courbes, graduations, jalons et ligne du temps). L'interface, l'import/export et le mode hors ligne se vérifient à la main dans Chrome.
+Les tests couvrent les calculs (durées, minuit, changement d'heure, seuils d'heures supplémentaires par convention, changement de taux en cours de semaine, changement de réglage à partir d'une date, primes, carnet, récapitulatif par période, suites et cumuls des courbes, lissage des courbes, graduations, jalons et ligne du temps). L'interface, l'import/export et le mode hors ligne se vérifient à la main dans Chrome.
 
 ## Mettre à jour une grille de taux
 Deux façons.
@@ -92,14 +92,16 @@ Une mise à jour ne touche jamais aux données (IndexedDB). Si le format des don
 Changer le nom à trois endroits : `nom` dans `js/config.js`, `<title>` dans `index.html`, `name` et `short_name` dans `manifest.webmanifest`. Puis publier une nouvelle version.
 
 ## Régénérer les icônes
-Seulement si `icons/logo.svg` ou `icons/logo-maskable.svg` change. PowerShell, dans `C:\Dev\CCQ App` :
+Les icônes viennent de l'image `icons/source-shift.png` (ruban à mesurer marqué d'un « S », fournie par l'utilisateur). Seulement si cette image change. PowerShell, dans `C:\Dev\CCQ App` :
 ```powershell
 npm install --no-save sharp
 node tools/icons.mjs
 ```
+Le script produit l'icône ordinaire (coins arrondis transparents, 48, 192 et 512 px) et l'icône « maskable » (fond noir plein, ruban dans le cercle central, pour qu'Android puisse la rogner). Les mesures de l'image (carré arrondi, cercle qui contient le ruban, noir du fond `#0d0d0d`) sont écrites en tête de `tools/icons.mjs` : les refaire si l'image est remplacée. `background_color` et `theme_color` du manifeste portent le même noir, pour que l'écran de démarrage d'Android se fonde avec l'icône.
 
 ## Choix de conception à connaître
-- La semaine va du dimanche au samedi (semaine de paie de la construction), réglable.
+- La semaine de paie va du dimanche au samedi, réglable (Réglages, Affichage et semaine : « Ma semaine de paie va du »). Source : guide de la CCQ pour remplir le rapport mensuel (PD5277F), « la semaine de travail débute à 0 h 01 le dimanche et se termine à 0 h le samedi suivant », la période mensuelle se termine le dernier samedi du mois. La semaine **normale** de travail, elle, est de 40 h du lundi au vendredi (conventions 2025-2029, résidentiel art. 18.02, IC section XX). Le réglage décide donc seulement dans quelle semaine tombent le samedi et le dimanche.
+- Chantiers : un chantier sert uniquement à garder la trace de l'endroit où l'utilisateur a travaillé chaque jour (traçabilité en cas de problème). Pas de notion « en cours / terminé » (un champ `actif` peut traîner dans d'anciennes sauvegardes : il est ignoré). La page « Mes chantiers » affiche le nombre de journées et les dates de chaque chantier. Un chantier noté sur des journées ne peut pas être supprimé, seulement renommé.
 - Un quart qui passe minuit est compté en entier sur le jour où il commence.
 - Le fuseau est `America/Toronto` : une nuit de changement d'heure dure 1 h de moins ou de plus.
 - Heures supplémentaires : heures au-delà du seuil par jour ou par semaine (lundi au vendredi), samedi, dimanche, fériés. Le choix « férié » fait sur une journée l'emporte sur la liste des fériés.
@@ -107,7 +109,9 @@ node tools/icons.mjs
 - Carnet : les crédits de formation (DEP) restent en réserve tant que l'apprenti ne les utilise pas. C'est lui qui choisit si et quand. Il inscrit les heures « déjà utilisées » ; le reste raccourcit la fin de l'apprentissage. Ne jamais appliquer les crédits d'office.
 - Saisie rapide : rien de ce qui dure (employeur, convention, échelon, taux) ne se ressaisit chaque jour. Le chantier de la veille est repris, les chantiers récents et les modèles d'horaire se choisissent en un appui, et l'écran Jour permet de basculer vers un profil déjà utilisé (« Changer » crée un profil daté du jour affiché, le passé ne bouge pas).
 - Effacer : toujours une confirmation, jamais de suppression en un seul appui (heures d'une journée, journée entière depuis Jour ou Semaine).
-- Accueil : écran d'ouverture par défaut (réglable : Accueil ou Jour, dans Réglages, Affichage et semaine). En haut, le jour et la semaine en cours. Puis les courbes « Mes gains et mes heures » : montants (brut estimé, net reçu) et heures, par semaine, par mois ou en cumul, sur 3 mois, 1 an ou tout. Un appui sur une courbe affiche le détail de la période juste en dessous. Plus bas, repliés : « Tout le détail » (semaine, mois, année) et la ligne du temps.
+- Accueil : écran d'ouverture par défaut (réglable : Accueil ou Jour, dans Réglages, Affichage et semaine). En haut, le jour et la semaine en cours, avec un bâton par jour de la semaine (un appui ouvre la journée). Puis les courbes « Mes gains et mes heures » : montants (brut estimé, net reçu) et heures, par semaine, par mois ou en cumul, sur 3 mois, 1 an ou tout. Sous les courbes : le total de la plage affichée, puis le détail de la période choisie. Plus bas, repliés : « Tout le détail » (semaine, mois, année) et la ligne du temps.
+- Courbes au doigt (usage principal : téléphone) : un appui choisit une période, un glissement de côté la fait suivre le doigt, un glissement de haut en bas reste un défilement de la page et ne change pas la sélection. Les chiffres de la période choisie sont dans un bandeau au-dessus des courbes, qui reste collé en haut de l'écran pendant le geste (le doigt cache le point). Les zones touchées (`#g-argent`, `#g-heures`) ne sont jamais remplacées pendant un geste, seul leur contenu est redessiné : sinon le téléphone coupe le glissement. Ne pas écrire « survol » ni « souris » dans l'interface.
+- Courbes lissées par interpolation monotone (`segmentsLisses` dans `js/graphique.js`, testée) : la courbe passe par chaque point et reste entre deux points voisins, donc jamais sous zéro et sans sommet inventé. Ne pas la remplacer par un lissage ordinaire.
 - Courbes : deux graphiques séparés, jamais deux unités sur le même axe. Une semaine sans heures vaut zéro, elle n'est pas sautée. Le net n'est **jamais estimé** : il n'est tracé que là où il est saisi ; un point vide signale un mois dont le net n'est saisi que pour une partie des semaines.
 - Récapitulatif : heures et brut estimé comptés jour par jour (une semaine à cheval sur deux mois est partagée, les primes suivent les heures) ; un talon compte dans le mois où la semaine se termine.
 - Ligne du temps (accueil) : un ruban à mesurer, une graduation par semaine, la plus récente en haut. Jalons factuels seulement : première journée, changements de profil à leur date d'effet, premier jour sur un chantier, changement de taux de la grille, paliers de 500 h saisies, dernière sauvegarde. Pas de jalon « passage de période » : la date où des crédits sont utilisés n'est pas connue de l'app, le changement d'échelon vient du profil.

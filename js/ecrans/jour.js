@@ -145,7 +145,7 @@ export function rendreJour(racine, date, naviguer) {
     return j;
   }
 
-  // Chantiers actifs, du plus récemment utilisé au plus ancien ; les jamais utilisés ensuite, le dernier créé d'abord.
+  // Chantiers, du plus récemment utilisé au plus ancien ; les jamais utilisés ensuite, le dernier créé d'abord.
   // La journée affichée ne compte pas : les pastilles ne changent pas de place quand on en touche une.
   function chantiersParUsage() {
     const dernier = new Map();
@@ -154,7 +154,6 @@ export function rendreJour(racine, date, naviguer) {
     }
     return etat.reglages.chantiers
       .map((c, i) => ({ c, i, d: dernier.get(c.id) ?? '' }))
-      .filter((x) => x.c.actif !== false || x.c.id === chantierId)
       .sort((a, b) => b.d.localeCompare(a.d) || b.i - a.i)
       .map((x) => x.c);
   }
@@ -241,7 +240,7 @@ export function rendreJour(racine, date, naviguer) {
     });
     if (r?.action !== 'ok') return;
     const id = nouvelId();
-    await majReglages((reg) => { reg.chantiers.push({ id, ...r.valeurs, actif: true }); });
+    await majReglages((reg) => { reg.chantiers.push({ id, ...r.valeurs }); });
     chantierId = id;
     enregistrer({ message: true });
   }

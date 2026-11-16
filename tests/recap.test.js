@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { calculerSemaine } from '../js/calcul.js';
 import { GRILLES, SECTEURS, ECHELONS } from '../js/grilles.js';
 import { joursVentiles, recapituler, jalons, ligneDuTemps, suiteContinue, totaliser, cumuler } from '../js/recap.js';
-import { graduations, indiceDepuisX } from '../js/graphique.js';
+import { graduations, indiceDepuisX, segmentsLisses } from '../js/graphique.js';
 
 const profil = (extra = {}) => ({ id: 'p1', dateEffet: '2025-01-01', secteur: 'ic', isole: false, echelon: 'app1', tauxPerso: null, regles: null, vacancesPct: 13, ...extra });
 const quart = (debut = '07:00', fin = '17:30', pauseMin = 30, extra = {}) => ({ debut, fin, pauseMin, ...extra });
@@ -215,4 +215,28 @@ test('graphique : graduations rondes et point le plus proche du doigt', () => {
   assert.equal(indiceDepuisX(360, 360, 10), 9);
   assert.equal(indiceDepuisX(46 + 300 / 2, 360, 11), 5);
   assert.equal(indiceDepuisX(100, 360, 1), 0);
+});
+
+test('graphique : la courbe lissée passe par les points sans jamais les dépasser', () => {
+  // Semaines pleines, semaine à zéro, sommet, palier : les cas où une courbe ordinaire déborde.
+  const xs = [0, 10, 20, 30, 40, 50, 60, 70];
+  const ys = [40, 0, 0, 55, 42, 42, 10, 48];
+  const segs = segmentsLisses(xs, ys);
+  assert.equal(segs.length, xs.length - 1);
+  segs.forEach((s, i) => {
+    const bas = Math.min(ys[i], ys[i + 1]) - 1e-9;
+    const haut = Math.max(ys[i], ys[i + 1]) + 1e-9;
+    assert.equal(s.x, xs[i + 1]);
+    assert.equal(s.y, ys[i + 1]);
+    for (const v of [s.y1, s.y2]) assert.ok(v >= bas && v <= haut, `intervalle ${i} : ${v} sort de [${bas}, ${haut}]`);
+    assert.ok(s.x1 > xs[i] && s.x1 < s.x2 && s.x2 < xs[i + 1]);
+  });
+  // Un palier reste plat, une valeur nulle reste à zéro.
+  assert.equal(segs[1].y1, 0);
+  assert.equal(segs[1].y2, 0);
+  assert.equal(segs[4].y1, 42);
+  assert.equal(segs[4].y2, 42);
+  // Deux points : une droite. Un seul : rien à tracer.
+  assert.deepEqual(segmentsLisses([0, 30], [10, 40]), [{ x1: 10, y1: 20, x2: 20, y2: 30, x: 30, y: 40 }]);
+  assert.deepEqual(segmentsLisses([5], [5]), []);
 });

@@ -66,18 +66,27 @@ function texteSauvegarde() {
   return n === null ? 'jamais' : n === 0 ? 'aujourd\'hui' : `il y a ${pluriel(n, 'jour')}`;
 }
 
+// Journées notées sur un chantier : combien, de quand à quand.
+function usageChantier(id) {
+  const dates = [...etat.jours.values()].filter((j) => j.chantierId === id).map((j) => j.date).sort();
+  return { nb: dates.length, premier: dates[0] ?? null, dernier: dates.at(-1) ?? null };
+}
+
+function texteUsage(u) {
+  if (!u.nb) return 'Aucune journée pour l\'instant';
+  if (u.nb === 1) return `1 journée, le ${dateCourte(u.premier)}`;
+  return `${u.nb} journées, du ${dateCourte(u.premier)} au ${dateCourte(u.dernier)}`;
+}
+
 function resumePage(page, auj) {
   const r = etat.reglages;
   if (page === 'emploi') return resumeProfil(profilPourDate(r.profils, auj), auj);
   if (page === 'horaires') return r.modeles.length ? r.modeles.map((m) => m.nom).join(', ') : 'Aucun horaire enregistré';
-  if (page === 'chantiers') {
-    const actifs = r.chantiers.filter((c) => c.actif !== false).length;
-    return r.chantiers.length ? `${pluriel(actifs, 'chantier')} en cours sur ${r.chantiers.length}` : 'Aucun chantier';
-  }
+  if (page === 'chantiers') return r.chantiers.length ? `${pluriel(r.chantiers.length, 'chantier')} : où tu as travaillé, jour par jour` : 'Aucun chantier';
   if (page === 'primes') return r.primes.length ? r.primes.map((p) => p.nom).join(', ') : 'Aucune (pension, déplacement, équipement…)';
   if (page === 'taux') return 'Les grilles de salaire, avec leur date et leur source';
   if (page === 'feries') return `${pluriel(r.feries.length, 'date')} : heures majorées ces jours-là`;
-  if (page === 'affichage') return `Thème ${r.theme === 'clair' ? 'clair' : r.theme === 'auto' ? 'comme le téléphone' : 'sombre'} · semaine à partir du ${r.debutSemaine === 1 ? 'lundi' : 'dimanche'}`;
+  if (page === 'affichage') return `Thème ${r.theme === 'clair' ? 'clair' : r.theme === 'auto' ? 'comme le téléphone' : 'sombre'} · semaine de paie du ${r.debutSemaine === 1 ? 'lundi au dimanche' : 'dimanche au samedi'}`;
   if (page === 'sauvegarde') return `Dernière sauvegarde : ${texteSauvegarde()}`;
   return `${APP.nom}, version ${APP.version}`;
 }
@@ -208,8 +217,8 @@ function htmlPage(page, auj) {
     </section>`;
   if (page === 'chantiers') return `
     <section class="carte">
-      <p class="aide">Les chantiers en cours sont proposés dans l'écran Jour. Marque un chantier « terminé » pour qu'il ne soit plus proposé ; les journées déjà saisies le gardent.</p>
-      ${htmlListe(r.chantiers, 'chantier', (c) => `<span><strong>${esc(c.nom)}</strong>${c.actif === false ? ' <span class="badge">terminé</span>' : ''}</span><small>${esc([c.adresse, c.ville].filter(Boolean).join(', ') || 'Pas d\'adresse')}</small>`, 'Aucun chantier. Ajoute-en un ici ou directement depuis l\'écran Jour.')}
+      <p class="aide">Un chantier sert à garder la trace de l'endroit où tu as travaillé chaque jour. Dans l'écran Jour, les derniers utilisés sont proposés en premier.</p>
+      ${htmlListe(r.chantiers, 'chantier', (c) => `<span><strong>${esc(c.nom)}</strong></span><small>${esc([c.adresse, c.ville].filter(Boolean).join(', ') || 'Pas d\'adresse')}</small><small>${esc(texteUsage(usageChantier(c.id)))}</small>`, 'Aucun chantier. Ajoute-en un ici ou directement depuis l\'écran Jour.')}
       <button class="btn btn-large btn-principal" data-act="chantier-nouveau">Ajouter un chantier</button>
     </section>`;
   if (page === 'primes') return `
@@ -238,10 +247,12 @@ function htmlPage(page, auj) {
       </select></label>
     </section>
     <section class="carte">
-      <label class="champ"><span>La semaine commence le</span><select id="debut-semaine">
-        <option value="0" ${r.debutSemaine === 0 ? 'selected' : ''}>Dimanche (semaine de paie de la construction)</option>
-        <option value="1" ${r.debutSemaine === 1 ? 'selected' : ''}>Lundi</option>
-      </select><small class="aide">Change le découpage des semaines, donc le calcul des heures supplémentaires. Regarde les dates de ta période de paie sur ton talon.</small></label>
+      <label class="champ"><span>Ma semaine de paie va du</span><select id="debut-semaine">
+        <option value="0" ${r.debutSemaine === 0 ? 'selected' : ''}>Dimanche au samedi</option>
+        <option value="1" ${r.debutSemaine === 1 ? 'selected' : ''}>Lundi au dimanche</option>
+      </select></label>
+      <p class="aide">Ta semaine normale de travail reste du lundi au vendredi. Ce réglage décide dans quelle semaine tombent le samedi et le dimanche : les totaux de l'app suivent alors les mêmes dates que ton talon de paie, et les heures de fin de semaine sont comptées avec la bonne semaine.</p>
+      <p class="aide">Dans la construction, les semaines sont comptées du dimanche au samedi : c'est le découpage du rapport que l'employeur remet chaque mois à la CCQ. Si les dates de ton talon vont du lundi au dimanche, change ce réglage.</p>
     </section>`;
   if (page === 'sauvegarde') return `
     <section class="carte">
@@ -486,7 +497,7 @@ export function rendreReglages(racine, param, naviguer) {
 
   // ----- Listes simples : horaires, chantiers, primes -----
   async function editerElement(cle, existant, definition) {
-    const res = await formulaire({ ...definition, supprimer: Boolean(existant) });
+    const res = await formulaire({ ...definition, supprimer: Boolean(existant) && definition.supprimer !== false });
     if (!res) return;
     await majReglages((reg) => {
       reg[cle] = reg[cle].filter((x) => x.id !== existant?.id);
@@ -507,15 +518,20 @@ export function rendreReglages(racine, param, naviguer) {
     valider: (v) => (v.pauseMin !== null && v.pauseMin < 0 ? 'La pause ne peut pas être négative.' : null),
   });
 
-  const defChantier = (c) => ({
-    titre: c ? 'Modifier le chantier' : 'Nouveau chantier',
-    champs: [
-      { nom: 'nom', label: 'Nom du chantier', valeur: c?.nom, requis: true },
-      { nom: 'adresse', label: 'Rue ou adresse', valeur: c?.adresse, placeholder: 'Facultatif' },
-      { nom: 'ville', label: 'Ville', valeur: c?.ville, placeholder: 'Facultatif' },
-      { nom: 'actif', label: 'Chantier en cours (proposé dans l\'écran Jour)', type: 'case', valeur: c ? c.actif !== false : true },
-    ],
-  });
+  // Un chantier noté sur des journées ne se supprime pas : c'est la trace de l'endroit où le travail a été fait.
+  const defChantier = (c) => {
+    const usage = c ? usageChantier(c.id) : { nb: 0 };
+    return {
+      titre: c ? 'Modifier le chantier' : 'Nouveau chantier',
+      intro: usage.nb ? `${texteUsage(usage)}. Tu peux le renommer ou corriger son adresse. Il ne peut pas être supprimé tant que des journées y sont notées : c'est ta trace.` : '',
+      supprimer: !usage.nb,
+      champs: [
+        { nom: 'nom', label: 'Nom du chantier', valeur: c?.nom, requis: true },
+        { nom: 'adresse', label: 'Rue ou adresse', valeur: c?.adresse, placeholder: 'Facultatif' },
+        { nom: 'ville', label: 'Ville', valeur: c?.ville, placeholder: 'Facultatif' },
+      ],
+    };
+  };
 
   const defPrime = (p) => ({
     titre: p ? 'Modifier la prime' : 'Nouvelle prime ou indemnité',

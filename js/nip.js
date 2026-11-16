@@ -3,17 +3,17 @@
 
 import { etat, enregistrerVerrou, retirerVerrou, noterEssai, effacerToutesLesDonnees } from './etat.js';
 import { APP } from './config.js';
-import { NIP_MIN, NIP_MAX, creerVerrou, verifierNip, secondesRestantes } from './verrou.js';
+import { NIP_LONGUEUR, creerVerrou, verifierNip, secondesRestantes } from './verrou.js';
 import { dessinOssature } from './decor.js';
 import { esc, confirmer, toast } from './ui.js';
 
 // Clavier de chiffres plein écran. Retourne une promesse : le NIP saisi, ou null si annulé.
-//   longueur : nombre de chiffres attendu (validation automatique) ; null = au choix, avec un bouton « Valider »
+// Le NIP fait toujours 4 chiffres : il est validé tout seul au quatrième.
 //   verifier(nip) : retourne true, ou un message d'erreur à afficher (la saisie est alors vidée)
 //   attente() : secondes pendant lesquelles le clavier reste bloqué (trop de NIP faux)
 //   annulable : montre « Annuler » ; sinon l'écran ne peut pas être fermé
 //   surOubli : si fourni, montre « NIP oublié ? »
-export function clavierNip({ titre, texte, longueur = null, verifier = null, attente = null, annulable = true, surOubli = null }) {
+export function clavierNip({ titre, texte, verifier = null, attente = null, annulable = true, surOubli = null }) {
   return new Promise((resolve) => {
     const d = document.createElement('dialog');
     d.className = 'verrou';
@@ -36,15 +36,12 @@ export function clavierNip({ titre, texte, longueur = null, verifier = null, att
             ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(touche).join('')}
             ${coin}${touche(0)}<button type="button" class="touche-texte" data-act="effacer" aria-label="Effacer le dernier chiffre">⌫</button>
           </div>
-          ${longueur === null ? '<button type="button" class="btn btn-principal btn-large" data-act="valider" disabled>Valider</button>' : ''}
         </div>
       </div>`;
     document.body.append(d);
 
     const points = d.querySelector('.verrou-points');
     const erreur = d.querySelector('.verrou-erreur');
-    const boutonValider = d.querySelector('[data-act="valider"]');
-    const max = longueur ?? NIP_MAX;
     let saisie = '';
     let occupe = false;
     let fini = false;
@@ -52,10 +49,8 @@ export function clavierNip({ titre, texte, longueur = null, verifier = null, att
 
     const bloque = () => (attente ? attente() : 0);
     const dessiner = () => {
-      const nb = longueur ?? Math.max(NIP_MIN, saisie.length);
-      points.innerHTML = Array.from({ length: nb }, (_, i) => `<i class="${i < saisie.length ? 'plein' : ''}"></i>`).join('');
-      points.setAttribute('aria-label', `${saisie.length} chiffre${saisie.length > 1 ? 's' : ''} sur ${longueur ?? `${NIP_MIN} à ${NIP_MAX}`}`);
-      if (boutonValider) boutonValider.disabled = saisie.length < NIP_MIN;
+      points.innerHTML = Array.from({ length: NIP_LONGUEUR }, (_, i) => `<i class="${i < saisie.length ? 'plein' : ''}"></i>`).join('');
+      points.setAttribute('aria-label', `${saisie.length} chiffre${saisie.length > 1 ? 's' : ''} sur ${NIP_LONGUEUR}`);
     };
     const terminer = (valeur) => {
       fini = true;
@@ -93,11 +88,11 @@ export function clavierNip({ titre, texte, longueur = null, verifier = null, att
       return undefined;
     };
     const taper = (chiffre) => {
-      if (occupe || bloque() > 0 || saisie.length >= max) return;
+      if (occupe || bloque() > 0 || saisie.length >= NIP_LONGUEUR) return;
       if (!erreur.textContent.startsWith('Trop')) erreur.textContent = '';
       saisie += chiffre;
       dessiner();
-      if (longueur !== null && saisie.length === longueur) valider();
+      if (saisie.length === NIP_LONGUEUR) valider();
     };
     const effacer = () => { if (!occupe) { saisie = saisie.slice(0, -1); dessiner(); } };
 
@@ -106,7 +101,6 @@ export function clavierNip({ titre, texte, longueur = null, verifier = null, att
       if (!b) return;
       if (b.dataset.chiffre) return taper(b.dataset.chiffre);
       if (b.dataset.act === 'effacer') return effacer();
-      if (b.dataset.act === 'valider') return valider();
       if (b.dataset.act === 'annuler') return terminer(null);
       if (b.dataset.act === 'oubli') return surOubli();
       return undefined;
@@ -114,7 +108,6 @@ export function clavierNip({ titre, texte, longueur = null, verifier = null, att
     d.addEventListener('keydown', (ev) => {
       if (/^\d$/.test(ev.key)) { ev.preventDefault(); taper(ev.key); }
       else if (ev.key === 'Backspace') { ev.preventDefault(); effacer(); }
-      else if (ev.key === 'Enter' && longueur === null && saisie.length >= NIP_MIN) { ev.preventDefault(); valider(); }
     });
     // Échap ou le bouton retour du téléphone : annule si c'est permis, sinon l'écran reste.
     d.addEventListener('cancel', (ev) => { ev.preventDefault(); if (annulable) terminer(null); });
@@ -159,7 +152,6 @@ export function deverrouiller() {
   return clavierNip({
     titre: APP.nom,
     texte: 'Entre ton NIP',
-    longueur: etat.verrou.longueur,
     verifier: verifierNipDeLApp,
     attente,
     annulable: false,
@@ -169,16 +161,15 @@ export function deverrouiller() {
 
 // Dans les réglages : redemande le NIP en place avant de le changer ou de l'enlever.
 function demanderNipActuel() {
-  return clavierNip({ titre: 'NIP actuel', texte: 'Entre ton NIP actuel', longueur: etat.verrou.longueur, verifier: verifierNipDeLApp, attente });
+  return clavierNip({ titre: 'NIP actuel', texte: 'Entre ton NIP actuel', verifier: verifierNipDeLApp, attente });
 }
 
 async function choisirNouveauNip() {
-  const premier = await clavierNip({ titre: 'Nouveau NIP', texte: `Choisis ${NIP_MIN} à ${NIP_MAX} chiffres, puis « Valider »` });
+  const premier = await clavierNip({ titre: 'Nouveau NIP', texte: `Choisis ${NIP_LONGUEUR} chiffres` });
   if (!premier) return null;
   return clavierNip({
     titre: 'Encore une fois',
     texte: 'Entre le même NIP pour le confirmer',
-    longueur: premier.length,
     verifier: async (nip) => nip === premier || 'Ce n\'est pas le même NIP. Réessaie.',
   });
 }

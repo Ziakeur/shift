@@ -3,12 +3,11 @@
 // (PBKDF2, SHA-256), impossible à relire à l'envers.
 // Limite assumée : c'est un verrou d'écran. Les données de l'app ne sont pas chiffrées.
 
-export const NIP_MIN = 4;
-export const NIP_MAX = 8;
+export const NIP_LONGUEUR = 4;
 const ITERATIONS = 150000;
 
 export function nipValide(nip) {
-  return typeof nip === 'string' && nip.length >= NIP_MIN && nip.length <= NIP_MAX && /^\d+$/.test(nip);
+  return typeof nip === 'string' && nip.length === NIP_LONGUEUR && /^\d+$/.test(nip);
 }
 
 const versTexte = (octets) => btoa(String.fromCharCode(...octets));
@@ -22,9 +21,9 @@ async function empreinte(nip, sel, iterations) {
 
 // Fabrique ce qu'on enregistre à la place du NIP.
 export async function creerVerrou(nip, { iterations = ITERATIONS } = {}) {
-  if (!nipValide(nip)) throw new Error(`Le NIP doit faire de ${NIP_MIN} à ${NIP_MAX} chiffres.`);
+  if (!nipValide(nip)) throw new Error(`Le NIP doit faire ${NIP_LONGUEUR} chiffres.`);
   const sel = crypto.getRandomValues(new Uint8Array(16));
-  return { version: 1, sel: versTexte(sel), empreinte: versTexte(await empreinte(nip, sel, iterations)), iterations, longueur: nip.length };
+  return { version: 1, sel: versTexte(sel), empreinte: versTexte(await empreinte(nip, sel, iterations)), iterations };
 }
 
 export async function verifierNip(nip, verrou) {

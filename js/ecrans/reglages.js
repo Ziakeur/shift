@@ -263,7 +263,7 @@ function htmlPage(page, auj) {
     </section>`;
   if (page === 'verrou') return `
     <section class="carte">
-      <p><strong>${etat.verrou ? `NIP activé (${etat.verrou.longueur} chiffres).` : 'NIP désactivé.'}</strong> ${etat.verrou ? 'L\'app le demande à l\'ouverture, et quand tu y reviens après plus d\'une minute ailleurs.' : 'L\'app s\'ouvre directement.'}</p>
+      <p><strong>${etat.verrou ? 'NIP activé.' : 'NIP désactivé.'}</strong> ${etat.verrou ? 'L\'app le demande à l\'ouverture, et quand tu y reviens après plus d\'une minute ailleurs.' : 'L\'app s\'ouvre directement.'}</p>
       ${etat.verrou ? `
         <button class="btn btn-large" data-act="nip-changer">Changer le NIP</button>
         <button class="btn btn-large btn-danger" data-act="nip-desactiver">Désactiver le NIP</button>` : `

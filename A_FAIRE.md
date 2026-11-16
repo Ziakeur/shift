@@ -1,6 +1,6 @@
 # À faire
 
-État au 16 novembre 2026 : version 0.4.0, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ». Rien n'est publié.
+État au 16 novembre 2026 : version 0.4.0, nom « Shift », en ligne sur https://ziakeur.github.io/shift/. Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
 Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAUDE.md`.
 
 ## 0. En attente de l'avis de l'utilisateur
@@ -8,12 +8,12 @@ Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAU
 - **Icône** : faite à partir de `icons/source-shift.png`. À voir sur le téléphone une fois l'app installée (icône ronde ou carrée selon le téléphone, écran de démarrage).
 - **Chantiers** : ajout non demandé, à confirmer : un chantier noté sur des journées ne peut plus être supprimé (seulement renommé), pour ne pas perdre la trace. Si ça gêne, retirer `supprimer: !usage.nb` dans `defChantier` (`js/ecrans/reglages.js`).
 
-## 1. Lot 4, en attente de réponses
-- **Nom** : « Shift », choisi par l'utilisateur le 16 novembre 2026. Beaucoup d'applications d'horaires portent un nom proche (Shiftboard, ShiftFox, Shift Calendar…) : sans importance pour un usage personnel, à revoir seulement si l'app est un jour proposée dans une boutique.
-- **Hébergement** : GitHub Pages ou Vercel, au choix de l'utilisateur. Ne rien publier sans accord.
-  - GitHub Pages (compte gratuit) : le dépôt doit être public, donc le code est visible de tous (aucune donnée personnelle dedans) ; adresse `compte.github.io/nom`.
-  - Vercel (offre gratuite « Hobby ») : dépôt privé possible ou non sur cette offre, non vérifié.
-- Avant de publier : remplacer l'adresse neutre des commits par l'adresse « noreply » du compte GitHub choisi si besoin.
+## 1. Lot 4 : publié le 16 novembre 2026
+- **Nom** : « Shift », choisi par l'utilisateur. Beaucoup d'applications d'horaires portent un nom proche (Shiftboard, ShiftFox, Shift Calendar…) : sans importance pour un usage personnel, à revoir seulement si l'app est un jour proposée dans une boutique.
+- **Hébergement** : GitHub Pages, choisi par l'utilisateur. Dépôt public `Ziakeur/shift`, adresse https://ziakeur.github.io/shift/. Vérifié en ligne dans un Chrome de test : ouverture, HTTPS forcé, installable, hors ligne, app vide au départ.
+- Chaque nouvelle publication (`git push`) demande l'accord de l'utilisateur.
+- La branche locale `avant-publication` garde l'historique d'avant la signature des commits avec l'adresse anonyme du compte ; elle n'est pas envoyée et peut être supprimée.
+- À faire par l'utilisateur : installer l'app sur son téléphone, activer la validation en deux étapes sur son compte GitHub (non vérifiable d'ici).
 
 ## 2. Vérifications restantes
 - Sur un vrai téléphone Android : installation sur l'écran d'accueil, icône et écran de démarrage, sélecteur d'heure, partage de la sauvegarde vers Drive, six onglets lisibles sur un petit écran.

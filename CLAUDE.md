@@ -83,7 +83,7 @@ Même démarche pour les règles d'heures supplémentaires (`PREREGLAGES`, avec 
 2. Augmenter le numéro de version **aux deux endroits, avec la même valeur** : `version` dans `js/config.js` et `VERSION` dans `sw.js` (et `version` dans `package.json`). Sans cela, les téléphones gardent l'ancienne version hors ligne.
 3. Si un fichier a été ajouté à l'app, l'ajouter à la liste `FICHIERS` de `sw.js`, sinon il manquera hors ligne.
 4. Vérifier dans Chrome en local : l'app s'ouvre, le bandeau « Nouvelle version prête » apparaît, « Mettre à jour » recharge, les données sont intactes.
-5. Commit, puis mise en ligne sur l'hébergement choisi (avec l'accord de l'utilisateur).
+5. Commit, puis mise en ligne avec l'accord de l'utilisateur. L'app est hébergée sur GitHub Pages : dépôt public `Ziakeur/shift`, branche `master`, adresse https://ziakeur.github.io/shift/. Publier = envoyer les commits (PowerShell, dans `C:\Dev\CCQ App`) : `git push`. Le site se met à jour en une à deux minutes. Tout ce qui est commité devient public : vérifier avant chaque envoi qu'il n'y a ni donnée personnelle ni sauvegarde.
 6. Sur le téléphone : ouvrir l'app avec du réseau, toucher « Mettre à jour » dans le bandeau.
 
 Une mise à jour ne touche jamais aux données (IndexedDB). Si le format des données change, augmenter `VERSION_FORMAT` dans `js/etat.js` et compléter `normaliser()` pour que les anciennes sauvegardes restent lisibles.

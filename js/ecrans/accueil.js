@@ -2,9 +2,10 @@
 // Les calculs sont dans js/recap.js, le dessin des courbes dans js/graphique.js.
 // Le net affiché est la somme des nets saisis depuis les talons : il n'est jamais estimé.
 
-import { etat, semaine, debutSemaine, aujourdhui, enregistrerJour } from '../etat.js';
+import { etat, semaine, debutSemaine, aujourdhui, enregistrerJour, majReglages } from '../etat.js';
 import { APP } from '../config.js';
-import { formatDate, formatDuree, nomMois, nomJour } from '../temps.js';
+import { formatDate, formatDuree, nomMois, nomJour, jourSemaine, heureLocale } from '../temps.js';
+import { salutation } from '../depart.js';
 import { SECTEURS, ECHELONS } from '../grilles.js';
 import { recapituler, joursVentiles, jalons, ligneDuTemps, suiteContinue, totaliser, cumuler, joursOublies } from '../recap.js';
 import { MOTIFS_ABSENCE } from '../calcul.js';
@@ -229,7 +230,7 @@ export function rendreAccueil(racine, _param, naviguer) {
     <header class="entete ${decor ? 'entete-toit' : ''}">
       ${decor ? `<div class="decor toit">${dessinFerme()}</div>` : ''}
       <div class="entete-titre">
-        <strong>${esc(APP.nom)}</strong>
+        <strong>${esc(etat.reglages.prenom ? salutation(etat.reglages.prenom, { heure: heureLocale(), jour: jourSemaine(auj) }) : APP.nom)}</strong>
         <small>${esc(formatDate(auj, { annee: true }))}</small>
       </div>
     </header>
@@ -244,6 +245,16 @@ export function rendreAccueil(racine, _param, naviguer) {
     </section>
 
     ${htmlOublies(oublies)}
+
+    ${etat.reglages.configDepart === 'plus-tard' ? `
+    <section class="carte rappel">
+      <h2>Configuration de départ</h2>
+      <p class="aide">Prénom, convention, échelon, semaine : une minute, et les montants estimés partent du bon taux.</p>
+      <div class="duo">
+        <button class="btn" data-act="depart-non">Ne plus afficher</button>
+        <button class="btn btn-principal" data-act="depart">Configurer</button>
+      </div>
+    </section>` : ''}
 
     ${aDeLHistorique ? `
     <section class="carte" id="courbes"></section>
@@ -471,6 +482,8 @@ export function rendreAccueil(racine, _param, naviguer) {
     const b = ev.target.closest('button');
     if (!b) return;
     if (b.dataset.act === 'jour') return naviguer('jour', auj);
+    if (b.dataset.act === 'depart') return naviguer('bienvenue');
+    if (b.dataset.act === 'depart-non') return majReglages((r) => { r.configDepart = 'fait'; }).then(() => naviguer('accueil'));
     if (b.dataset.act === 'oublies-motif') return motifPourOublies();
     if (b.dataset.jour) return naviguer('jour', b.dataset.jour);
     if (b.dataset.sem) return naviguer('semaine', b.dataset.sem);

@@ -12,6 +12,7 @@ import { SECTEURS, ECHELONS, GRILLES_MANQUANTES, PROCHAINE_HAUSSE, prereglage, c
 import { GROUPES_SUJETS, ONGLETS, CONVENTIONS, ongletPourSecteur } from '../convention.js';
 import { esc, argent, nombre, toast, formulaire, confirmer, telecharger, partager } from '../ui.js';
 import { activerNip, changerNip, desactiverNip } from '../nip.js';
+import { FONDS, fondValide } from '../decor.js';
 
 const UNITES = { heure: 'par heure travaillée', jour: 'par jour travaillé', semaine: 'par semaine travaillée' };
 const CHAMPS_REGLES = ['seuilJour', 'seuilSemaine', 'heuresPalier1', 'multPalier1', 'multPalier2', 'multSamedi', 'multDimanche', 'multFerie', 'reductionFerie'];
@@ -46,7 +47,6 @@ export const titrePage = (page) => TITRES[page] ?? '';
 // Choix proposés sur la première page des réglages.
 const THEMES = [['sombre', 'Sombre'], ['clair', 'Clair'], ['auto', 'Automatique']];
 export const ACCENTS = [['ambre', 'Ambre'], ['vert', 'Vert'], ['bleu', 'Bleu'], ['violet', 'Violet']];
-const FONDS = [['plan', 'Plan de chantier'], ['uni', 'Uni']];
 const REGLABLES = ['theme', 'accent', 'fond', 'ecranOuverture', 'debutSemaine'];
 
 function nomConvention(p) {
@@ -109,23 +109,28 @@ export function resumePage(page, auj) {
 }
 
 // Un choix parmi quelques-uns, en un appui : la valeur en cours est marquée.
-function htmlChoix(cle, options, valeur, classe = '') {
+export function htmlChoix(cle, options, valeur, classe = '') {
   return `<div class="choix ${classe}" role="group">${options.map(([v, nom]) => `
     <button class="choix-case ${String(v) === String(valeur) ? 'actif' : ''}" data-regler="${cle}" data-valeur="${esc(v)}" aria-pressed="${String(v) === String(valeur)}">
       <span class="apercu apercu-${cle} apercu-${esc(v)}" aria-hidden="true"></span><span>${esc(nom)}</span>
     </button>`).join('')}</div>`;
 }
 
-function htmlApparence(r) {
+// Thème, couleur des boutons et fond : les trois choix d'apparence (aussi montrés par l'écran de bienvenue).
+export function htmlChoixApparence(r) {
   const theme = THEMES.some(([v]) => v === r.theme) ? r.theme : 'sombre';
   const accent = ACCENTS.some(([v]) => v === r.accent) ? r.accent : 'ambre';
   return `
-    <section class="carte">
-      <h2>Apparence</h2>
       <div class="champ"><span>Thème</span>${htmlChoix('theme', THEMES, theme)}
         <small class="aide">Clair : plus lisible en plein soleil. Automatique : comme le téléphone.</small></div>
       <div class="champ"><span>Couleur des boutons</span>${htmlChoix('accent', ACCENTS, accent, 'choix-4')}</div>
-      <div class="champ"><span>Fond de l'app</span>${htmlChoix('fond', FONDS, r.fond === 'uni' ? 'uni' : 'plan', 'choix-2')}</div>
+      <div class="champ"><span>Fond de l'app</span>${htmlChoix('fond', FONDS, fondValide(r.fond))}</div>`;
+}
+
+function htmlApparence(r) {
+  return `
+    <section class="carte">
+      <h2>Apparence</h2>${htmlChoixApparence(r)}
     </section>`;
 }
 

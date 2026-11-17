@@ -1,6 +1,14 @@
 // Dessins au trait pour le décor « plan de chantier » : une ferme de toit et une ossature de maison.
 // Du SVG écrit à la main, sans image externe. La couleur vient du style (`currentColor`).
 
+// Fonds de l'app (Réglages, Apparence). Les motifs sont dessinés en CSS (css/style.css, `data-fond`).
+// « uni » : aucun motif et aucun dessin. Les autres gardent les dessins de charpente.
+export const FONDS = [
+  ['plan', 'Plan'], ['points', 'Points'], ['treillis', 'Treillis'],
+  ['briques', 'Briques'], ['planches', 'Planches'], ['uni', 'Uni'],
+];
+export const fondValide = (cle) => (FONDS.some(([v]) => v === cle) ? cle : 'plan');
+
 const debut = (largeur, hauteur) => `<svg viewBox="0 0 ${largeur} ${hauteur}" aria-hidden="true" focusable="false">`;
 const trait = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
 

@@ -7,6 +7,7 @@ import { formatDate } from '../temps.js';
 import { profilPourDate, tauxDuProfil } from '../calcul.js';
 import { SECTEURS, ECHELONS, ASSURANCE, CARNET } from '../grilles.js';
 import { estimerAssurance, periodesCles, semestreAssurance } from '../assurance.js';
+import { nettoyerPrenom } from '../depart.js';
 import { esc, argent, nombre, formulaire, toast } from '../ui.js';
 import { rendreReglages, PAGES_TRAVAIL, titrePage, resumePage } from './reglages.js';
 import { rendreCarnet, calculerCarnet } from './carnet.js';
@@ -155,7 +156,7 @@ function htmlCarteCarnet(auj) {
 function htmlAccueilProfil(auj) {
   const heures = heuresTravaillees();
   return `
-    <header class="entete"><div class="entete-titre"><strong>Profil</strong><small>Ton emploi, ton assurance, ton carnet</small></div></header>
+    <header class="entete"><div class="entete-titre"><strong>${esc(etat.reglages.prenom || 'Profil')}</strong><small>Ton emploi, ton assurance, ton carnet</small></div></header>
     ${htmlTete(auj, heures)}
     ${htmlCarteAssurance(calculerAssurance(auj, heures), heures)}
     ${htmlCarteCarnet(auj)}
@@ -168,7 +169,32 @@ function htmlAccueilProfil(auj) {
             <span class="chevron" aria-hidden="true">›</span>
           </button>`).join('')}
       </div>
+    </section>
+    <section class="menu-groupe">
+      <h2 class="menu-titre">Moi</h2>
+      <div class="liste">
+        <button class="rangee" data-act="prenom">
+          <span class="rangee-corps"><strong>Mon prénom</strong><small>${esc(etat.reglages.prenom || 'Non précisé : il sert à te saluer sur l\'accueil')}</small></span>
+          <span class="chevron" aria-hidden="true">›</span>
+        </button>
+        <button class="rangee" data-act="depart">
+          <span class="rangee-corps"><strong>Configuration de départ</strong><small>Prénom, convention, échelon, semaine, apparence : tout revoir d'un coup</small></span>
+          <span class="chevron" aria-hidden="true">›</span>
+        </button>
+      </div>
     </section>`;
+}
+
+async function editerPrenom(naviguer) {
+  const r = await formulaire({
+    titre: 'Mon prénom',
+    intro: 'Ton prénom ou ton surnom, pour te saluer sur l\'accueil. Il reste sur ce téléphone. Laisse vide pour ne pas en mettre.',
+    champs: [{ nom: 'prenom', label: 'Prénom ou surnom', valeur: etat.reglages.prenom, placeholder: 'Facultatif' }],
+  });
+  if (r?.action !== 'ok') return;
+  await majReglages((reg) => { reg.prenom = nettoyerPrenom(r.valeurs.prenom); });
+  toast(etat.reglages.prenom ? 'Prénom enregistré' : 'Prénom retiré');
+  naviguer('profil');
 }
 
 // ---------------------------------------------------------------------------
@@ -283,6 +309,8 @@ export function rendreProfil(racine, param, naviguer) {
     if (b.dataset.page) return naviguer('profil', b.dataset.page);
     if (b.dataset.act === 'retour') return naviguer('profil');
     if (b.dataset.act === 'carte') return editerCarte(auj, naviguer);
+    if (b.dataset.act === 'prenom') return editerPrenom(naviguer);
+    if (b.dataset.act === 'depart') return naviguer('bienvenue');
     return undefined;
   };
   return undefined;

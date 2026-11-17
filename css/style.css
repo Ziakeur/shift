@@ -479,6 +479,46 @@ html[data-fond="plan"] body, html[data-fond="plan"] dialog.verrou {
   background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
   background-position: center top;
 }
+/* Autres fonds (Réglages, Apparence) : dessinés en dégradés, sans image. `--motif` est la couleur du trait,
+   `--ml` et `--mh` les mesures du motif. Les mêmes règles dessinent l'aperçu des réglages, en plus petit. */
+:root { --motif: rgb(124 196 255 / .09); --motif-point: rgb(124 196 255 / .22); }
+:root[data-theme="clair"] { --motif: rgb(11 92 171 / .11); --motif-point: rgb(11 92 171 / .26); }
+
+/* Points : papier pointé. */
+html[data-fond="points"] body, html[data-fond="points"] dialog.verrou, .apercu-points {
+  --ml: 22px;
+  background-image: radial-gradient(circle, var(--motif-point) 1.2px, transparent 1.8px);
+  background-size: var(--ml) var(--ml);
+}
+
+/* Treillis : triangles d'une poutre en treillis. Deux diagonales par carreau, et une ligne à chaque rangée. */
+html[data-fond="treillis"] body, html[data-fond="treillis"] dialog.verrou, .apercu-treillis {
+  --ml: 30px; --mh: 26px;
+  --diagonale: transparent calc(50% - .5px), var(--motif) calc(50% - .5px) calc(50% + .5px), transparent calc(50% + .5px);
+  background-image:
+    linear-gradient(to top right, var(--diagonale)), linear-gradient(to bottom right, var(--diagonale)),
+    linear-gradient(var(--motif) 1px, transparent 1px);
+  background-size: var(--ml) calc(2 * var(--mh)), var(--ml) calc(2 * var(--mh)), var(--ml) var(--mh);
+}
+
+/* Briques : un joint couché à chaque rang, les joints debout décalés d'une demi-brique un rang sur deux. */
+html[data-fond="briques"] body, html[data-fond="briques"] dialog.verrou, .apercu-briques {
+  --ml: 56px; --mh: 20px;
+  --joint: conic-gradient(from 270deg at 1px var(--mh), var(--motif) 90deg, transparent 0);
+  background-image: linear-gradient(var(--motif) 1px, transparent 1px), var(--joint), var(--joint);
+  background-size: var(--ml) var(--mh), var(--ml) calc(2 * var(--mh)), var(--ml) calc(2 * var(--mh));
+  background-position: 0 0, 0 0, calc(var(--ml) / 2) var(--mh);
+}
+
+/* Planches : lattes debout, les bouts décalés d'une latte à l'autre. */
+html[data-fond="planches"] body, html[data-fond="planches"] dialog.verrou, .apercu-planches {
+  --ml: 34px; --mh: 190px;
+  --bout: conic-gradient(from 270deg at var(--ml) 1px, var(--motif) 90deg, transparent 0);
+  background-image: linear-gradient(90deg, var(--motif) 1px, transparent 1px), var(--bout), var(--bout), var(--bout);
+  background-size: var(--ml) var(--ml), calc(3 * var(--ml)) var(--mh), calc(3 * var(--ml)) var(--mh), calc(3 * var(--ml)) var(--mh);
+  background-position: 0 0, 0 calc(var(--mh) * .15), var(--ml) calc(var(--mh) * .7), calc(2 * var(--ml)) calc(var(--mh) * .4);
+}
+
 body { min-height: 100dvh; }
 .decor { color: var(--accent); }
 .decor svg { display: block; width: 100%; height: auto; }
@@ -614,3 +654,36 @@ dialog.verrou.bloque .verrou-clavier button[data-chiffre] { opacity: .35; }
   background-size: 10px 10px;
 }
 .apercu-uni { background: var(--fond); }
+/* Aperçus des autres fonds : le motif de la page (voir « Autres fonds »), plus petit et plus marqué. */
+.apercu-fond { background-color: var(--fond); --motif: var(--discret); --motif-point: var(--discret); }
+.apercu-points { --ml: 8px; }
+.apercu-treillis { --ml: 14px; --mh: 12px; }
+.apercu-briques { --ml: 22px; --mh: 8px; }
+.apercu-planches { --ml: 10px; --mh: 30px; }
+.choix-1 { grid-template-columns: 1fr; }
+.choix-1 .choix-case { min-height: 52px; }
+
+/* Écran de bienvenue (configuration de départ) : plein écran, sans onglets ni bandeau */
+html.plein-ecran .onglets, html.plein-ecran .bandeau { display: none; }
+html.plein-ecran main { min-height: 100dvh; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+html.plein-ecran .toast { bottom: calc(24px + env(safe-area-inset-bottom)); }
+.depart { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+.depart h1 { margin: 0; font-size: 1.7rem; line-height: 1.15; }
+.depart h2 small { font-weight: 400; margin-left: 6px; }
+.depart-tete { display: flex; align-items: center; gap: 12px; min-height: var(--touche); }
+.depart-tete .lien { flex: none; min-height: 44px; }
+.depart-points { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.depart-points i { height: 6px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--bord); }
+.depart-points i.fait { background: var(--accent); border-color: var(--accent); }
+.depart-accueil, .depart-fin { justify-content: center; }
+.depart-accueil { text-align: center; }
+.depart-dessin { width: min(300px, 78%); opacity: .9; align-self: center; }
+.depart-pied { display: flex; flex-direction: column; gap: 8px; }
+.depart-pied .lien { min-height: 44px; }
+.depart-fin .tableau td:first-child { white-space: nowrap; }
+.depart-fin .tableau .montant { white-space: normal; }
+.depart .duo .champ { min-width: 0; }
+.depart .duo input { min-width: 0; }
+
+/* Accueil : rappel de la configuration de départ remise à plus tard */
+.rappel { border-color: var(--accent); }

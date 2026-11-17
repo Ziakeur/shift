@@ -11,8 +11,11 @@ import { rendrePaie } from './ecrans/paie.js';
 import { rendreProfil, PAGES_PROFIL } from './ecrans/profil.js';
 import { rendreReglages, PAGES_REGLAGES } from './ecrans/reglages.js';
 import { rendreReleve } from './ecrans/releve.js';
+import { rendreBienvenue } from './ecrans/bienvenue.js';
+import { fondValide } from './decor.js';
 
 const ECRANS = {
+  bienvenue: { rendre: rendreBienvenue },
   accueil: { rendre: rendreAccueil },
   jour: { rendre: rendreJour, defaut: () => aujourdhui() },
   semaine: { rendre: rendreSemaine, defaut: () => debutSemaine(aujourdhui()), normaliser: (d) => debutSemaine(d) },
@@ -42,6 +45,8 @@ let dernier = { ecran: null, param: null };
 
 // Sans adresse précise, on ouvre l'écran choisi dans les réglages (Accueil ou Jour).
 function lireRoute() {
+  // Première ouverture : l'écran de bienvenue passe avant tout, jusqu'à « Terminer » ou « Plus tard ».
+  if (etat.reglages?.configDepart === 'a-faire') return { ecran: 'bienvenue', param: null };
   const [, ecran, param] = location.hash.split('/');
   const ouverture = etat.reglages?.ecranOuverture === 'jour' ? 'jour' : 'accueil';
   const nom = ECRANS[ecran] ? ecran : ouverture;
@@ -65,6 +70,8 @@ function afficher() {
   if (p && def.normaliser) p = def.normaliser(p);
 
   const defilement = dernier.ecran === ecran && dernier.param === p ? window.scrollY : 0;
+  // L'écran de bienvenue prend toute la place : ni onglets, ni bandeau.
+  document.documentElement.classList.toggle('plein-ecran', ecran === 'bienvenue');
   racine.onclick = null;
   racine.onchange = null;
   racine.oninput = null;
@@ -97,7 +104,7 @@ function appliquerTheme() {
   const theme = etat.reglages.theme;
   const sombre = theme === 'sombre' || (theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = sombre ? 'sombre' : 'clair';
-  document.documentElement.dataset.fond = etat.reglages.fond === 'uni' ? 'uni' : 'plan';
+  document.documentElement.dataset.fond = fondValide(etat.reglages.fond);
   document.documentElement.dataset.accent = ['vert', 'bleu', 'violet'].includes(etat.reglages.accent) ? etat.reglages.accent : 'ambre';
   document.querySelector('meta[name="theme-color"]').content = sombre ? '#101214' : '#f4f2ec';
 }

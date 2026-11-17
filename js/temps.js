@@ -88,6 +88,11 @@ export function aujourdhui(maintenant = new Date(), fuseau = FUSEAU) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: fuseau, year: 'numeric', month: '2-digit', day: '2-digit' }).format(maintenant);
 }
 
+// Heure d'horloge (0 à 23) dans le fuseau, à un instant donné.
+export function heureLocale(maintenant = new Date(), fuseau = FUSEAU) {
+  return Number(new Intl.DateTimeFormat('en-CA', { timeZone: fuseau, hour: '2-digit', hourCycle: 'h23' }).format(maintenant));
+}
+
 // Décalage (minutes) entre l'heure locale du fuseau et UTC à un instant donné.
 function decalageFuseau(instantMs, fuseau) {
   const parts = new Intl.DateTimeFormat('en-CA', {

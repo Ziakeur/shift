@@ -29,6 +29,10 @@ export function reglagesParDefaut() {
     fond: 'plan',
     accent: 'ambre',
     ecranOuverture: 'accueil',
+    prenom: '',
+    // Configuration de départ : 'a-faire' (première ouverture, l'écran de bienvenue s'affiche),
+    // 'plus-tard' (remise à plus tard, rappel sur l'accueil) ou 'fait'. Des réglages d'avant cette version : 'fait'.
+    configDepart: 'fait',
     joursTravail: [1, 2, 3, 4, 5],
     profils: [{
       id: nouvelId(), dateEffet: '2025-01-01', employeur: '', secteur: 'ic', isole: false, gite: false,
@@ -60,6 +64,8 @@ function normaliser(r) {
     if (!Array.isArray(out[cle])) out[cle] = d[cle];
   }
   if (!out.profils.length) out.profils = d.profils;
+  if (typeof out.prenom !== 'string') out.prenom = '';
+  if (!['a-faire', 'plus-tard', 'fait'].includes(out.configDepart)) out.configDepart = 'fait';
   return out;
 }
 
@@ -73,7 +79,11 @@ export async function charger() {
   etat.grilles = fusionnerGrilles(etat.reglages.grillesPerso);
   etat.verrou = verrou ?? null;
   etat.essais = essais ?? null;
-  if (!reglages) await db.ecrire('kv', etat.reglages, 'reglages');
+  // Aucun réglage enregistré : c'est la première ouverture sur cet appareil, l'écran de bienvenue s'affichera.
+  if (!reglages) {
+    etat.reglages.configDepart = 'a-faire';
+    await db.ecrire('kv', etat.reglages, 'reglages');
+  }
 }
 
 // ---------------------------------------------------------------------------

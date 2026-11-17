@@ -10,6 +10,7 @@ import { rendreSemaine } from './ecrans/semaine.js';
 import { rendrePaie } from './ecrans/paie.js';
 import { rendreCarnet } from './ecrans/carnet.js';
 import { rendreReglages, PAGES_REGLAGES } from './ecrans/reglages.js';
+import { rendreReleve } from './ecrans/releve.js';
 
 const ECRANS = {
   accueil: { rendre: rendreAccueil },
@@ -18,6 +19,7 @@ const ECRANS = {
   paie: { rendre: rendrePaie, defaut: () => debutSemaine(aujourdhui()), normaliser: (d) => debutSemaine(d) },
   carnet: { rendre: rendreCarnet },
   reglages: { rendre: rendreReglages, pages: PAGES_REGLAGES },
+  releve: { rendre: rendreReleve },
 };
 
 const racine = document.getElementById('ecran');
@@ -65,8 +67,9 @@ function afficher() {
   const dateCourante = p && DATE.test(p) ? p : aujourdhui();
   for (const a of document.querySelectorAll('.onglets a')) {
     const o = a.dataset.onglet;
-    a.classList.toggle('actif', o === ecran);
-    if (o === ecran) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    const actif = o === ecran || (o === 'reglages' && ecran === 'releve');
+    a.classList.toggle('actif', actif);
+    if (actif) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     if (o === 'semaine' || o === 'paie') a.href = `#/${o}/${debutSemaine(dateCourante)}`;
     if (o === 'jour') a.href = ecran === 'jour' || !DATE.test(param ?? '') ? '#/jour' : `#/jour/${dateCourante}`;
   }

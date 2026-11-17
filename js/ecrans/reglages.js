@@ -15,6 +15,7 @@ const CHAMPS_REGLES = ['seuilJour', 'seuilSemaine', 'heuresPalier1', 'multPalier
 const dateCourte = (d) => formatDate(d, { jour: false, annee: true });
 const fr = (n) => (typeof n === 'number' ? String(n).replace('.', ',') : '');
 const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+const JOURS_COURTS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 
 // Les pages, dans l'ordre du menu. `resume` : ce qui est réglé en ce moment, affiché sous le titre.
 const GROUPES = [
@@ -281,7 +282,7 @@ function htmlPage(page, auj) {
   if (page === 'primes') return `
     <section class="carte">
       <p class="aide">Montants ajoutés à la paie en plus des heures : pension, déplacement, prime de chantier isolé, équipement de sécurité… Tu choisis si chaque ligne compte dans le salaire brut ou si c'est une indemnité à part.</p>
-      ${htmlListe(r.primes, 'prime', (p) => `<span><strong>${esc(p.nom)}</strong>${p.actif === false ? ' <span class="badge">en pause</span>' : ''}</span><small>${esc(argent(p.montant))} ${UNITES[p.unite]}${p.dansSalaire ? ' · compte dans le salaire' : ' · indemnité'}${p.chantierId ? ` · ${esc(chantierNom(p.chantierId) ?? 'chantier supprimé')}` : ''}</small>`, 'Aucune prime.')}
+      ${htmlListe(r.primes, 'prime', (p) => `<span><strong>${esc(p.nom)}</strong>${p.actif === false ? ' <span class="badge">en pause</span>' : ''}</span><small>${esc(argent(p.montant))} ${UNITES[p.unite]}${p.aCocher ? ' · à cocher chaque jour' : ''}${p.dansSalaire ? ' · compte dans le salaire' : ' · indemnité'}${p.chantierId ? ` · ${esc(chantierNom(p.chantierId) ?? 'chantier supprimé')}` : ''}</small>`, 'Aucune prime.')}
       <button class="btn btn-large btn-principal" data-act="prime-nouvelle">Ajouter une prime ou une indemnité</button>
       <p class="aide">Exemple lu dans les exemples de paie du 26 avril 2026 : indemnité d'équipement de sécurité de 0,75 $ par heure en institutionnel-commercial (ACQ) et de 0,65 $ en résidentiel léger (APCHQ), non imposable.</p>
     </section>`;
@@ -314,6 +315,12 @@ function htmlPage(page, auj) {
       </select></label>
       <p class="aide">Ta semaine normale de travail reste du lundi au vendredi. Ce réglage décide dans quelle semaine tombent le samedi et le dimanche : les totaux de l'app suivent alors les mêmes dates que ton talon de paie, et les heures de fin de semaine sont comptées avec la bonne semaine.</p>
       <p class="aide">Dans la construction, les semaines sont comptées du dimanche au samedi : c'est le découpage du rapport que l'employeur remet chaque mois à la CCQ. Si les dates de ton talon vont du lundi au dimanche, change ce réglage.</p>
+    </section>
+    <section class="carte">
+      <div class="champ"><span>Mes jours de travail habituels</span>
+        <div class="jours-cases">${JOURS_COURTS.map((l, i) => `<label class="jour-case"><input type="checkbox" name="jours-travail" value="${i}" ${r.joursTravail.includes(i) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
+      </div>
+      <p class="aide">L'accueil signale ces jours-là quand rien n'est noté (ni heures, ni motif « pas travaillé ») sur les deux dernières semaines. Aucun jour coché : pas de signalement.</p>
     </section>`;
   if (page === 'verrou') return `
     <section class="carte">
@@ -339,6 +346,7 @@ function htmlPage(page, auj) {
       <p class="aide" id="etat-stockage"></p>
     </section>
     <section class="carte">
+      <a class="btn btn-large" href="#/releve">Relevé d'heures à imprimer (PDF)</a>
       <button class="btn btn-large" data-act="export-csv">Exporter mes heures en CSV (Excel)</button>
       <label class="champ"><span>Me rappeler de sauvegarder tous les (jours)</span>
         <input type="text" inputmode="numeric" id="rappel-jours" value="${esc(r.sauvegarde.rappelJours)}"></label>
@@ -622,6 +630,7 @@ export function rendreReglages(racine, param, naviguer) {
       { nom: 'montant', label: 'Montant ($)', type: 'nombre', valeur: p?.montant, requis: true },
       { nom: 'unite', label: 'Versée', type: 'choix', valeur: p?.unite ?? 'jour', options: Object.entries(UNITES).map(([valeur, label]) => ({ valeur, label })) },
       { nom: 'dansSalaire', label: 'Compte dans le salaire brut (et les vacances)', type: 'case', valeur: p?.dansSalaire, aide: 'Coché pour une prime salariale. Décoché pour un remboursement ou une indemnité (pension, kilométrage, équipement).' },
+      { nom: 'aCocher', label: 'Seulement les jours où je la coche', type: 'case', valeur: p?.aCocher, aide: "Pour une indemnité qui ne vient pas tous les jours (repas, pension d'un soir…) : elle apparaît dans l'écran Jour, à cocher les jours où tu y as droit. Décoché : elle vaut tous les jours travaillés." },
       { nom: 'chantierId', label: 'Seulement sur ce chantier', type: 'choix', valeur: p?.chantierId ?? '', options: [{ valeur: '', label: 'Tous les chantiers' }, ...r.chantiers.map((c) => ({ valeur: c.id, label: c.nom }))] },
       { nom: 'debut', label: 'À partir du', type: 'date', valeur: p?.debut },
       { nom: 'fin', label: 'Jusqu\'au', type: 'date', valeur: p?.fin },
@@ -732,6 +741,10 @@ export function rendreReglages(racine, param, naviguer) {
     } else if (t.id === 'debut-semaine') {
       await majReglages((reg) => { reg.debutSemaine = Number(t.value); });
       toast('Découpage des semaines modifié');
+    } else if (t.name === 'jours-travail') {
+      const jours = [...racine.querySelectorAll('input[name="jours-travail"]:checked')].map((i) => Number(i.value));
+      await majReglages((reg) => { reg.joursTravail = jours; });
+      toast('Jours de travail enregistrés');
     } else if (t.id === 'rappel-jours') {
       const n = Math.max(1, Math.round(Number(t.value) || 7));
       await majReglages((reg) => { reg.sauvegarde.rappelJours = n; });

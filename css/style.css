@@ -175,6 +175,7 @@ input.puce-saisie { width: 64px; padding: 6px; min-height: 48px; border-radius: 
 .note-info { border-color: var(--info); color: var(--info); background: color-mix(in srgb, var(--info) 10%, transparent); }
 p.ok { border-color: var(--ok); color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, transparent); }
 .erreur[hidden] { display: none; }
+.champ[hidden] { display: none; }
 
 /* Listes */
 .liste { display: flex; flex-direction: column; gap: 6px; }
@@ -503,3 +504,37 @@ dialog.verrou.bloque .verrou-clavier button[data-chiffre] { opacity: .35; }
   dialog.verrou.secoue .verrou-points { animation: secoue .35s; }
   @keyframes secoue { 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
 }
+
+/* Jours à compléter (accueil) */
+.oublies { border-color: var(--accent); }
+.oublies .puces { flex-wrap: wrap; }
+
+/* Relevé d'heures : lisible à l'écran, propre à l'impression (noir sur blanc, sans menu ni boutons). */
+.rl { display: flex; flex-direction: column; gap: 10px; }
+.rl h1 { font-size: 1.4rem; margin: 4px 0 0; }
+.rl-periode { margin: 0; font-weight: 700; }
+.rl-profil { margin: 0; color: var(--discret); font-size: .95rem; }
+.rl-resume td.montant { white-space: normal; }
+.rl-sem { border-top: 2px solid var(--bord); padding-top: 8px; break-inside: avoid; }
+.rl-sem h2 { font-size: 1rem; }
+.rl-jour { padding: 6px 0; border-bottom: 1px solid var(--bord); break-inside: avoid; }
+.rl-tete { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; }
+.rl-tete span { grid-column: 1; grid-row: 2; color: var(--discret); font-size: .95rem; }
+.rl-tete b { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.rl-detail { font-size: .9rem; color: var(--discret); overflow-wrap: anywhere; }
+.rl-total { margin: 6px 0 0; text-align: right; }
+.rl-pied { font-size: .8rem; color: var(--discret); margin-top: 8px; }
+
+@media print {
+  @page { margin: 14mm; }
+  :root, :root[data-theme="clair"] {
+    --fond: #fff; --surface: #fff; --texte: #000; --discret: #333; --bord: #999;
+    color-scheme: light;
+  }
+  html, body { background: #fff !important; background-image: none !important; color: #000; font-size: 11pt; }
+  .onglets, .bandeau, .toast, .rl-ecran, .decor { display: none !important; }
+  main { max-width: none; padding: 0; }
+  .rl-tete span, .rl-detail, .rl-profil, .rl-pied { color: #333; }
+}
+.rl-ecran .duo .champ { min-width: 0; }
+.rl-ecran input[type="date"] { width: 100%; min-width: 0; }

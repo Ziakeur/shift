@@ -1,9 +1,15 @@
 # À faire
 
-État au 17 novembre 2026 : version 0.5.2 (aide-mémoire « Convention collective », mention de l'auteur) en ligne depuis le 17 novembre 2026 sur https://ziakeur.github.io/shift/, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
+État au 17 novembre 2026 : version 0.6.0 prête en local (voir section 0), version 0.5.2 (aide-mémoire « Convention collective », mention de l'auteur) en ligne depuis le 17 novembre 2026 sur https://ziakeur.github.io/shift/, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
 Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAUDE.md`.
 
-## 0. Fait le 17 novembre 2026 : version 0.5.2 en ligne (accord de l'utilisateur)
+## 0. Version 0.6.0 : faite le 17 novembre 2026, commitée, PAS en ligne (attend l'accord de l'utilisateur)
+- Demandée par l'utilisateur (propositions 2, 5, 6, 7) : jours oubliés et motif « pas travaillé », primes à cocher par jour, relevé imprimable en PDF, paies de vacances par semestre (écran Paie).
+- Vérifié dans un Chrome de test au format téléphone (390 px), données fictives : carte des jours à compléter, marquage en lot, motif sur l'écran Jour avec confirmation si des heures existent, Semaine, prime cochée comptée dans Paie, carte des vacances, relevé à l'écran sans défilement de côté et en mode impression.
+- Pas vu sur un vrai téléphone : impression depuis l'app installée (`window.print()` en mode application Android non vérifié).
+- Dates de versement des vacances lues sur ccq.org le 17 novembre 2026 (résidentiel 24.02, IC et industriel 19.05) ; article du génie civil non trouvé (adresse en 404), la page générale « Paies de vacances » de la CCQ couvre tout le monde.
+
+## 0 ter. Fait le 17 novembre 2026 : version 0.5.2 en ligne (accord de l'utilisateur)
 - **Version 0.5.2** : mention « Idée originale et conception : Aurélien Vincent » et adresse de contact (`auteur`, `contact` dans `js/config.js`), dans Réglages, À propos seulement (choix de l'utilisateur, qui accepte que son nom soit public).
 - **Réglages, Aide-mémoire, « Convention collective »** (`js/convention.js`) : 4 onglets (résidentiel, IC, industriel, génie civil), s'ouvre sur le secteur du réglage en cours (★), 19 sujets repliables par secteur avec article et lien vers ccq.org. Taux repris de `GRILLES`. Textes lus le 17 novembre 2026 dans les conventions officielles ; chiffres clés recontrôlés dans le texte (déplacement, pension, repas, bottes et casque, préavis, présence).
 - Vérifié dans un Chromium de test au format téléphone (390 px) : pas de défilement de côté, onglets, sujets repliables, entrée du menu. Pas vu sur un vrai téléphone.

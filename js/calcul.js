@@ -5,6 +5,16 @@ import { grillePourDate, prereglage, VACANCES_PCT } from './grilles.js';
 
 const arrondi = (x) => Math.round((x + Number.EPSILON) * 100) / 100;
 
+// Motifs d'une journée sans travail. `court` : pour les petits espaces (bâtons de la semaine).
+export const MOTIFS_ABSENCE = {
+  intemperie: { nom: 'Intempérie', court: 'Météo' },
+  malade: { nom: 'Malade', court: 'Malade' },
+  conge: { nom: 'Congé', court: 'Congé' },
+  vacances: { nom: 'Vacances', court: 'Vac.' },
+  'mise-a-pied': { nom: 'Mis à pied', court: 'Arrêt' },
+  autre: { nom: 'Autre', court: 'Autre' },
+};
+
 // Profil en vigueur à une date : le plus récent dont la date d'effet est atteinte.
 // Avant le premier profil, on prend le premier (il n'y a rien d'autre à appliquer).
 export function profilPourDate(profils, date) {
@@ -110,9 +120,11 @@ export function nomMultiplicateur(mult) {
   return `Temps × ${String(mult).replace('.', ',')}`;
 }
 
-// Une prime s'applique-t-elle à ce jour travaillé ?
-function primeActive(prime, jour) {
+// Une prime s'applique-t-elle à ce jour ?
+// Une prime « à cocher » ne vaut que les jours où elle est cochée dans l'écran Jour, avec ou sans heures.
+export function primeActive(prime, jour) {
   if (prime.actif === false) return false;
+  if (prime.aCocher && !(jour.saisie?.primes ?? []).includes(prime.id)) return false;
   if (prime.debut && jour.date < prime.debut) return false;
   if (prime.fin && jour.date > prime.fin) return false;
   if (prime.chantierId && prime.chantierId !== jour.chantierId) return false;
@@ -176,7 +188,7 @@ export function calculerSemaine(debut, saisies, reglages, grilles) {
   const travailles = jours.filter((j) => j.minutes > 0);
   const lignesPrimes = [];
   for (const prime of reglages.primes ?? []) {
-    const concernes = travailles.filter((j) => primeActive(prime, j));
+    const concernes = (prime.aCocher ? jours : travailles).filter((j) => primeActive(prime, j));
     if (!concernes.length) continue;
     const montantUnitaire = Number(prime.montant) || 0;
     let quantite;

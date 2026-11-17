@@ -31,14 +31,14 @@ L'utilisateur n'est pas développeur : répondre en français, court et direct, 
 | `js/convention.js` | Aide-mémoire des conventions collectives par secteur (Réglages, Convention collective) : textes lus avec article et lien, statut « à vérifier » sinon |
 | `js/calcul.js` | Répartition simple / majoré, paie de la semaine, primes (pur) |
 | `js/carnet.js` | Périodes d'apprentissage, estimation, période du rapport mensuel (pur) |
-| `js/recap.js` | Totaux par semaine, mois et année, jalons et ligne du temps de l'accueil (pur) |
+| `js/recap.js` | Totaux par semaine, mois et année, jalons et ligne du temps de l'accueil, jours oubliés, paies de vacances par semestre, relevé d'une période (pur) |
 | `js/db.js`, `js/etat.js` | IndexedDB, état en mémoire, export / import |
 | `js/graphique.js` | Dessin des courbes en SVG, sans bibliothèque |
 | `js/ui.js` | Formats, fenêtres de saisie, messages |
 | `js/verrou.js` | Verrou par NIP : empreinte du NIP, vérification, pause après des NIP faux (pur) |
 | `js/nip.js` | Clavier du NIP plein écran, ouverture de l'app, activer / changer / désactiver |
 | `js/decor.js` | Dessins au trait du décor « plan de chantier » (ferme de toit, ossature) |
-| `js/ecrans/*.js` | Un fichier par écran : accueil, jour, semaine, paie, carnet, réglages (un menu et une page par sujet : `#/reglages/emploi`, `#/reglages/horaires`…) |
+| `js/ecrans/*.js` | Un fichier par écran : accueil, jour, semaine, paie, carnet, relevé (`#/releve`, à imprimer), réglages (un menu et une page par sujet : `#/reglages/emploi`, `#/reglages/horaires`…) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Mode hors ligne et installation |
 | `tests/*.test.js` | Tests automatiques des calculs |
 | `tools/serve.mjs`, `tools/icons.mjs`, `tools/donnees-fictives.mjs` | Serveur local, génération des icônes, sauvegarde de démonstration (données inventées, fichier `sauvegarde-fictive.json` jamais commité) |
@@ -61,7 +61,7 @@ node --test
 ```
 Tout doit être vert avant un commit. Toute nouvelle logique de calcul vient avec son test dans `tests/`.
 
-Les tests couvrent les calculs (durées, minuit, changement d'heure, seuils d'heures supplémentaires par convention, changement de taux en cours de semaine, changement de réglage à partir d'une date, primes, carnet, récapitulatif par période, suites et cumuls des courbes, lissage des courbes, graduations, jalons et ligne du temps, verrou par NIP). L'interface, l'import/export et le mode hors ligne se vérifient à la main dans Chrome.
+Les tests couvrent les calculs (durées, minuit, changement d'heure, seuils d'heures supplémentaires par convention, changement de taux en cours de semaine, changement de réglage à partir d'une date, primes, carnet, récapitulatif par période, suites et cumuls des courbes, lissage des courbes, graduations, jalons et ligne du temps, verrou par NIP, primes à cocher, jours oubliés, paies de vacances par semestre, relevé). L'interface, l'import/export et le mode hors ligne se vérifient à la main dans Chrome.
 
 ## Mettre à jour une grille de taux
 Deux façons.
@@ -123,6 +123,12 @@ Le script produit l'icône ordinaire (coins arrondis transparents, 48, 192 et 51
 - Ligne du temps (accueil) : un ruban à mesurer, une graduation par semaine, la plus récente en haut. Jalons factuels seulement : première journée, changements de profil à leur date d'effet, premier jour sur un chantier, changement de taux de la grille, paliers de 500 h saisies, dernière sauvegarde. Pas de jalon « passage de période » : la date où des crédits sont utilisés n'est pas connue de l'app, le changement d'échelon vient du profil.
 - Réglages, « Mon emploi » : chaque ligne (employeur, convention, échelon, taux, heures supplémentaires, vacances) se change séparément, avec la date du changement. `changerProfils` (dans `js/calcul.js`) crée le profil daté et fait suivre le changement aux profils plus tardifs qui avaient encore l'ancienne valeur. La case « erreur de saisie » corrige le profil en cours sans créer de date. L'historique, en dessous, permet de corriger ou supprimer une période entière. Dans l'interface on dit « réglage » ou « période », jamais « profil ».
 - Couleurs des barres d'heures (`--s1`, `--s15`, `--s2`) et des courbes (`--c-brut`, `--c-net`), dans `css/style.css` : vérifiées pour les daltoniens sur fond sombre et clair. Ne pas les remplacer par le jaune et l'orange des étiquettes, trop proches l'un de l'autre.
+
+- Journée « pas travaillé » : un motif par jour (`absence` dans la fiche : intempérie, malade, congé, vacances, mis à pied, autre ; liste `MOTIFS_ABSENCE` dans `js/calcul.js`). Un quart complet efface le motif ; choisir un motif sur une journée qui a des heures demande confirmation. « Remplir la semaine » saute ces jours.
+- Jours oubliés (accueil) : jours de travail habituels (`reglages.joursTravail`, réglable dans Affichage et semaine, lundi au vendredi au départ) des 14 derniers jours, aujourd'hui exclu, sans quart complet ni motif, hors fériés, jamais avant la première fiche. Les jours vides se marquent d'un coup avec un motif.
+- Primes « à cocher » (`aCocher` sur la prime) : ne valent que les jours où elles sont cochées dans l'écran Jour (`primes` dans la fiche), même sans heures. Les autres primes valent tous les jours travaillés.
+- Paies de vacances (écran Paie) : estimation par semestre, jour par jour. Janvier à juin, versé dans les 8 derniers jours de novembre ; juillet à décembre, dans les 8 derniers jours de juin suivant (résidentiel art. 24.02, IC et industriel art. 19.05, page « Paies de vacances » de ccq.org, lus le 17 novembre 2026 ; article du génie civil non lu).
+- Relevé (`#/releve`, depuis Réglages, Sauvegarde) : journées d'une période groupées par semaine, montants en option, imprimé par `window.print()` (Chrome propose « Enregistrer au format PDF »). Il porte la mention non officielle. Un talon y compte si sa semaine se termine dans la période ; une semaine coupée l'indique.
 
 ## Limites connues, non couvertes
 - Réserve d'heures du résidentiel (art. 19.04), taux de nuit, industrie lourde, primes d'équipe.

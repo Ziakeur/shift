@@ -2,7 +2,7 @@
 
 import { etat, semaine, debutSemaine, enregistrerJour, supprimerJour, chantier, dernierJourAvant, aujourdhui } from '../etat.js';
 import { ajouterJours, formatDate, formatDuree, jourSemaine, nomJour } from '../temps.js';
-import { nomMultiplicateur } from '../calcul.js';
+import { nomMultiplicateur, MOTIFS_ABSENCE } from '../calcul.js';
 import { esc, toast, choisir, confirmer } from '../ui.js';
 
 export function titreSemaine(debut) {
@@ -52,7 +52,7 @@ export function rendreSemaine(racine, debut, naviguer) {
     <section class="liste">
       ${s.jours.map((j) => {
         const ch = chantier(j.chantierId);
-        const quart = j.saisie?.debut && j.saisie?.fin ? `${j.saisie.debut} à ${j.saisie.fin}` : (j.saisie ? 'Sans heures' : '');
+        const quart = j.saisie?.debut && j.saisie?.fin ? `${j.saisie.debut} à ${j.saisie.fin}` : j.saisie?.absence ? `Pas travaillé : ${MOTIFS_ABSENCE[j.saisie.absence]?.nom ?? j.saisie.absence}` : (j.saisie ? 'Sans heures' : '');
         return `
         <div class="rangee-groupe">
           <button class="rangee ${j.date === auj ? 'auj' : ''} ${j.minutes ? '' : 'vide'}" data-jour="${j.date}">
@@ -93,7 +93,7 @@ export function rendreSemaine(racine, debut, naviguer) {
       if (!modeles.length) return toast('Aucun modèle avec des jours cochés. Crée-en un dans les réglages.', 'erreur');
       const id = await choisir({
         titre: 'Remplir la semaine',
-        texte: 'Seuls les jours sans heures sont remplis. Rien n\'est écrasé.',
+        texte: 'Seuls les jours sans heures ni motif « pas travaillé » sont remplis. Rien n\'est écrasé.',
         options: modeles.map((m) => ({ valeur: m.id, label: m.nom, detail: `${m.debut} à ${m.fin}, ${m.jours.length} jour(s)` })),
       });
       const m = modeles.find((x) => x.id === id);
@@ -102,7 +102,7 @@ export function rendreSemaine(racine, debut, naviguer) {
       let n = 0;
       for (const j of s.jours) {
         if (!m.jours.includes(jourSemaine(j.date))) continue;
-        if (j.saisie?.debut || j.saisie?.fin) continue;
+        if (j.saisie?.debut || j.saisie?.fin || j.saisie?.absence) continue;
         await enregistrerJour({ ...(j.saisie ?? {}), date: j.date, debut: m.debut, fin: m.fin, pauseMin: m.pauseMin ?? 0, chantierId: j.saisie?.chantierId ?? chantierId, note: j.saisie?.note ?? '' });
         n += 1;
       }

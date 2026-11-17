@@ -1,6 +1,7 @@
 // Écran « Paie » : brut estimé de la semaine, vacances à part, primes, puis comparaison au talon.
 
-import { etat, semaine, debutSemaine, enregistrerSemaine, aujourdhui } from '../etat.js';
+import { etat, semaine, debutSemaine, enregistrerSemaine, aujourdhui, toutesLesSemaines } from '../etat.js';
+import { paiesVacances } from '../recap.js';
 import { ajouterJours, formatDate, formatHeuresDecimales } from '../temps.js';
 import { nomMultiplicateur, profilPourDate } from '../calcul.js';
 import { ECHELONS, SECTEURS, VACANCES_SOURCE, PROCHAINE_HAUSSE } from '../grilles.js';
@@ -8,6 +9,28 @@ import { esc, argent, nombre, lireNombre, toast } from '../ui.js';
 import { enteteSemaine } from './semaine.js';
 
 const UNITES = { heure: 'h', jour: 'jour(s)', semaine: 'semaine' };
+const STATUTS = { 'en-cours': 'en cours', 'a-venir': 'à venir', versee: 'déjà versée' };
+
+// Semestres pas encore versés, plus le dernier versé (pour comparer avec l'avis de paiement de la CCQ).
+function htmlVacances(auj) {
+  const toutes = paiesVacances(toutesLesSemaines(), auj);
+  const visibles = [...toutes.filter((v) => v.statut !== 'versee'), ...toutes.filter((v) => v.statut === 'versee').slice(0, 1)];
+  if (!visibles.length) return '';
+  const titre = (v) => `${v.cle.endsWith('-1') ? 'Janvier à juin' : 'Juillet à décembre'} ${v.debut.slice(0, 4)}`;
+  return `
+    <section class="carte">
+      <h2>Mes paies de vacances</h2>
+      <table class="tableau"><tbody>
+        ${visibles.map((v) => `
+          <tr>
+            <td>${esc(titre(v))} <span class="badge">${STATUTS[v.statut]}</span>
+              <small>Versée par la CCQ entre le ${esc(formatDate(v.versement.du, { jour: false }))} et le ${esc(formatDate(v.versement.au, { jour: false, annee: true }))}${v.statut === 'en-cours' ? ', montant à ce jour' : ''}${v.incomplet ? " · incomplet : des heures n'ont pas de taux" : ''}</small></td>
+            <td class="montant">${esc(argent(v.montant))}</td>
+          </tr>`).join('')}
+      </tbody></table>
+      <p class="aide">Estimation : le pourcentage de vacances appliqué au brut estimé de chaque jour, rangé dans son semestre. Le montant exact est sur l'avis de paiement, dans les services en ligne de la CCQ.</p>
+    </section>`;
+}
 
 function descriptionTaux(s) {
   const vus = new Map();
@@ -87,6 +110,8 @@ export function rendrePaie(racine, debut, naviguer) {
       <label class="champ"><span>Note</span><input type="text" id="note-talon" value="${esc(talon.note ?? '')}" placeholder="Numéro du talon, remarque…"></label>
       <p class="aide">Les déductions (impôts, RRQ, assurance-emploi, RQAP, cotisation syndicale, retraite, assurance) ne sont pas estimées : elles dépendent de ta situation et de ton syndicat. Entre le net tel qu'il est sur ton talon.</p>
     </section>
+
+    ${htmlVacances(aujourdhui())}
 
     <section class="carte">
       <h2>Taux utilisé</h2>

@@ -1,7 +1,7 @@
 // Récapitulatifs par semaine, mois et année, et ligne du temps de l'historique.
 // Fonctions pures, testées dans tests/. Les montants sont additionnés en cents pour éviter les erreurs d'arrondi.
 
-import { ajouterJours } from './temps.js';
+import { ajouterJours, jourSemaine } from './temps.js';
 
 const enCents = (x) => Math.round(((Number(x) || 0) + Number.EPSILON) * 100);
 const dollars = (n) => `${n.toFixed(2).replace('.', ',')} $`;
@@ -14,12 +14,15 @@ function minutesPar(tranches, garder) {
 // Répartit une semaine calculée entre ses jours travaillés.
 // Brut du jour = heures du jour à leur taux + part des primes de la semaine, au prorata des heures.
 // La somme des jours redonne exactement le brut de la semaine.
+// Une semaine sans heures mais avec une prime cochée la répartit à parts égales entre les jours cochés.
 export function joursVentiles(sem) {
-  const travailles = sem.jours.filter((j) => j.minutes > 0);
+  const avecHeures = sem.jours.filter((j) => j.minutes > 0);
+  const travailles = avecHeures.length ? avecHeures : sem.jours.filter((j) => j.saisie?.primes?.length);
   const total = travailles.reduce((s, j) => s + j.minutes, 0);
+  const poids = (j) => (total ? j.minutes / total : 1 / travailles.length);
   const bases = travailles.map((j) => enCents(j.montant));
   const reste = enCents(sem.brut) - bases.reduce((a, b) => a + b, 0);
-  const parts = travailles.map((j) => Math.round((reste * j.minutes) / total));
+  const parts = travailles.map((j) => Math.round(reste * poids(j)));
   if (parts.length) parts[parts.length - 1] += reste - parts.reduce((a, b) => a + b, 0);
   return travailles.map((j, i) => ({
     date: j.date,
@@ -241,4 +244,123 @@ export function ligneDuTemps(semaines, listeJalons = [], { debutCourant = null }
     items.push({ type: 'semaine', debut: d, fin, ...totaux, brut: s?.brut ?? 0, incomplet: Boolean(s?.tauxManquant), jalons: js });
   }
   return items.reverse();
+}
+
+// Jours habituels de travail des `nbJours` derniers jours (aujourd'hui exclu) où rien n'est noté :
+// ni quart complet, ni motif « pas travaillé ». Les fériés sont ignorés, et rien n'est signalé
+// avant la première fiche de l'historique. Du plus ancien au plus récent : { date, incomplet }.
+// `incomplet` : un début ou une fin est saisi, mais pas les deux.
+export function joursOublies(saisies, { auj, joursTravail = [1, 2, 3, 4, 5], feries = [], nbJours = 14 } = {}) {
+  if (!saisies.size || !joursTravail.length) return [];
+  const premier = [...saisies.keys()].sort()[0];
+  const liste = new Set(feries);
+  const depuis = ajouterJours(auj, -nbJours);
+  const out = [];
+  for (let d = depuis < premier ? premier : depuis; d < auj; d = ajouterJours(d, 1)) {
+    if (!joursTravail.includes(jourSemaine(d))) continue;
+    const j = saisies.get(d);
+    if (typeof j?.ferie === 'boolean' ? j.ferie : liste.has(d)) continue;
+    if (j?.absence || (j?.debut && j?.fin)) continue;
+    out.push({ date: d, incomplet: Boolean(j?.debut || j?.fin) });
+  }
+  return out;
+}
+
+// Semestre de l'indemnité de vacances (conventions 2025-2029, résidentiel art. 24.02, IC et industriel art. 19.05) :
+// janvier à juin, versé dans les 8 derniers jours de novembre ; juillet à décembre, dans les 8 derniers jours de juin suivant.
+export function periodeVacances(date) {
+  const a = Number(date.slice(0, 4));
+  return date.slice(5, 7) <= '06'
+    ? { cle: `${a}-1`, debut: `${a}-01-01`, fin: `${a}-06-30`, versement: { du: `${a}-11-23`, au: `${a}-11-30` } }
+    : { cle: `${a}-2`, debut: `${a}-07-01`, fin: `${a}-12-31`, versement: { du: `${a + 1}-06-23`, au: `${a + 1}-06-30` } };
+}
+
+// Indemnité de vacances estimée par semestre, du plus récent au plus ancien.
+// Comptée jour par jour (une semaine à cheval sur le 30 juin est partagée), au pourcentage de la semaine.
+// statut : 'en-cours' (le semestre n'est pas fini), 'a-venir' (fini, pas encore versé), 'versee'.
+export function paiesVacances(semaines, auj) {
+  const periodes = new Map();
+  for (const sem of semaines) {
+    for (const j of joursVentiles(sem)) {
+      const p = periodeVacances(j.date);
+      if (!periodes.has(p.cle)) periodes.set(p.cle, { ...p, cents: 0, minutes: 0, incomplet: false });
+      const l = periodes.get(p.cle);
+      l.cents += Math.round((j.brutCents * sem.vacancesPct) / 100);
+      l.minutes += j.minutes;
+      if (j.sansTaux) l.incomplet = true;
+    }
+  }
+  return [...periodes.values()]
+    .sort((a, b) => b.cle.localeCompare(a.cle))
+    .map(({ cents, ...p }) => ({
+      ...p,
+      montant: cents / 100,
+      statut: auj <= p.fin ? 'en-cours' : auj <= p.versement.au ? 'a-venir' : 'versee',
+    }));
+}
+
+// Relevé d'une période, jour par jour, groupé par semaine (pour l'imprimer).
+//   semaines : semaines calculées qui couvrent [du, au]
+//   talons   : début de semaine -> { brutReel, netReel } ; un talon compte si sa semaine se termine dans la période
+// Seules les journées notées (heures, motif, chantier ou note) apparaissent.
+export function releve(semaines, { du, au, talons = new Map(), chantiers = [], primes = [] } = {}) {
+  const lireTalon = (d) => (talons instanceof Map ? talons.get(d) : talons?.[d]);
+  const total = { minutes: 0, simples: 0, demi: 0, double: 0, autres: 0, brutCents: 0, joursTravailles: 0, absences: {}, netNb: 0, netCents: 0, brutReelNb: 0, brutReelCents: 0, incomplet: false };
+  const liste = [];
+  for (const sem of [...semaines].sort((a, b) => a.debut.localeCompare(b.debut))) {
+    const fin = ajouterJours(sem.debut, 6);
+    if (fin < du || sem.debut > au) continue;
+    const ventiles = new Map(joursVentiles(sem).map((v) => [v.date, v]));
+    const jours = [];
+    const st = { minutes: 0, brutCents: 0 };
+    for (const j of sem.jours) {
+      if (j.date < du || j.date > au || !j.saisie) continue;
+      const v = ventiles.get(j.date);
+      const ch = chantiers.find((c) => c.id === j.saisie.chantierId);
+      const ligne = {
+        date: j.date,
+        debut: j.saisie.debut || '',
+        fin: j.saisie.fin || '',
+        pauseMin: j.saisie.debut && j.saisie.fin ? (j.saisie.pauseMin ?? 0) : 0,
+        minutes: j.minutes,
+        simples: v?.simples ?? 0, demi: v?.demi ?? 0, double: v?.double ?? 0, autres: v?.autres ?? 0,
+        brut: (v?.brutCents ?? 0) / 100,
+        sansTaux: Boolean(v?.sansTaux),
+        ferie: Boolean(j.ferie),
+        absence: j.saisie.absence ?? null,
+        chantier: ch ? { nom: ch.nom, lieu: [ch.adresse, ch.ville].filter(Boolean).join(', ') } : null,
+        primes: (j.saisie.primes ?? []).map((id) => primes.find((p) => p.id === id)?.nom).filter(Boolean),
+        note: j.saisie.note ?? '',
+      };
+      jours.push(ligne);
+      st.minutes += ligne.minutes;
+      st.brutCents += v?.brutCents ?? 0;
+      for (const c of ['minutes', 'simples', 'demi', 'double', 'autres']) total[c] += ligne[c];
+      total.brutCents += v?.brutCents ?? 0;
+      if (ligne.minutes) total.joursTravailles += 1;
+      if (ligne.sansTaux) total.incomplet = true;
+      if (ligne.absence) total.absences[ligne.absence] = (total.absences[ligne.absence] ?? 0) + 1;
+    }
+    const t = fin >= du && fin <= au ? lireTalon(sem.debut) : null;
+    const talon = t && (typeof t.brutReel === 'number' || typeof t.netReel === 'number')
+      ? { brutReel: typeof t.brutReel === 'number' ? t.brutReel : null, netReel: typeof t.netReel === 'number' ? t.netReel : null }
+      : null;
+    if (talon && talon.netReel !== null) { total.netNb += 1; total.netCents += enCents(talon.netReel); }
+    if (talon && talon.brutReel !== null) { total.brutReelNb += 1; total.brutReelCents += enCents(talon.brutReel); }
+    if (!jours.length && !talon) continue;
+    liste.push({ debut: sem.debut, fin, jours, minutes: st.minutes, brut: st.brutCents / 100, talon });
+  }
+  return {
+    du, au,
+    semaines: liste,
+    total: {
+      minutes: total.minutes, simples: total.simples, demi: total.demi, double: total.double, autres: total.autres,
+      brut: total.brutCents / 100,
+      incomplet: total.incomplet,
+      joursTravailles: total.joursTravailles,
+      absences: total.absences,
+      netNb: total.netNb, net: total.netNb ? total.netCents / 100 : null,
+      brutReelNb: total.brutReelNb, brutReel: total.brutReelNb ? total.brutReelCents / 100 : null,
+    },
+  };
 }

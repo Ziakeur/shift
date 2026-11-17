@@ -2,14 +2,15 @@
 // Les calculs sont dans js/recap.js, le dessin des courbes dans js/graphique.js.
 // Le net affiché est la somme des nets saisis depuis les talons : il n'est jamais estimé.
 
-import { etat, semaine, debutSemaine, aujourdhui } from '../etat.js';
+import { etat, semaine, debutSemaine, aujourdhui, enregistrerJour } from '../etat.js';
 import { APP } from '../config.js';
 import { formatDate, formatDuree, nomMois, nomJour } from '../temps.js';
 import { SECTEURS, ECHELONS } from '../grilles.js';
-import { recapituler, joursVentiles, jalons, ligneDuTemps, suiteContinue, totaliser, cumuler } from '../recap.js';
+import { recapituler, joursVentiles, jalons, ligneDuTemps, suiteContinue, totaliser, cumuler, joursOublies } from '../recap.js';
+import { MOTIFS_ABSENCE } from '../calcul.js';
 import { courbes, indiceDepuisX } from '../graphique.js';
 import { dessinFerme } from '../decor.js';
-import { esc, argent, nombre } from '../ui.js';
+import { esc, argent, nombre, choisir, toast } from '../ui.js';
 
 const MODES = { semaines: 'Semaines', mois: 'Mois', cumul: 'Cumul' };
 const PLAGES = { '3m': { nom: '3 mois', semaines: 13, mois: 3 }, '1a': { nom: '1 an', semaines: 52, mois: 12 }, tout: { nom: 'Tout', semaines: Infinity, mois: Infinity } };
@@ -176,13 +177,28 @@ function htmlJoursSemaine(sem, auj) {
         const segments = v ? SEGMENTS.filter(([, champ]) => v[champ] > 0) : [];
         const quand = j.date === auj ? 'auj' : j.date > auj ? 'futur' : '';
         return `
-          <button class="sem-jour ${quand}" data-jour="${j.date}" aria-label="${esc(formatDate(j.date))} : ${j.minutes ? esc(formatDuree(j.minutes)) : 'rien de saisi'}. Ouvrir la journée.">
+          <button class="sem-jour ${quand}" data-jour="${j.date}" aria-label="${esc(formatDate(j.date))} : ${j.minutes ? esc(formatDuree(j.minutes)) : j.saisie?.absence ? `pas travaillé, ${esc(MOTIFS_ABSENCE[j.saisie.absence]?.nom ?? '')}` : 'rien de saisi'}. Ouvrir la journée.">
             <span class="sem-baton" aria-hidden="true"><span style="height:${((j.minutes / echelle) * 100).toFixed(1)}%">${segments.map(([classe, champ]) => `<i class="${classe}" style="flex:${v[champ]}"></i>`).join('')}</span></span>
             <b>${esc(nomJour(j.date, true))}</b>
-            <small>${j.minutes ? esc(formatDuree(j.minutes)) : '·'}</small>
+            <small>${j.minutes ? esc(formatDuree(j.minutes)) : esc(MOTIFS_ABSENCE[j.saisie?.absence]?.court ?? '·')}</small>
           </button>`;
       }).join('')}
     </div>`;
+}
+
+// Jours habituels de travail des deux dernières semaines où rien n'est noté. Un appui ouvre la journée.
+function htmlOublies(oublies) {
+  if (!oublies.length) return '';
+  const vides = oublies.filter((o) => !o.incomplet);
+  return `
+    <section class="carte oublies">
+      <h2>${oublies.length > 1 ? `${oublies.length} jours à compléter` : '1 jour à compléter'}</h2>
+      <div class="puces">
+        ${oublies.map((o) => `<button class="puce" data-jour="${o.date}" aria-label="${esc(formatDate(o.date))}${o.incomplet ? ', heure de début ou de fin manquante' : ''}">${esc(`${nomJour(o.date, true)} ${Number(o.date.slice(8))} ${nomMois(o.date, true)}`)}${o.incomplet ? ' · incomplet' : ''}</button>`).join('')}
+      </div>
+      ${vides.length > 1 ? `<button class="btn btn-large" data-act="oublies-motif">Je n'ai pas travaillé ces ${vides.length} jours…</button>` : ''}
+      <p class="aide">Jours de travail habituels sans heures ni motif, sur les deux dernières semaines. Les jours se règlent dans Réglages, Affichage et semaine.</p>
+    </section>`;
 }
 
 export function rendreAccueil(racine, _param, naviguer) {
@@ -207,6 +223,7 @@ export function rendreAccueil(racine, _param, naviguer) {
   const aDesAutres = items.some((i) => i.type === 'semaine' && i.autres > 0);
   const aDeLHistorique = recap.semaines.length > 0;
   const decor = etat.reglages.fond !== 'uni';
+  const oublies = joursOublies(etat.jours, { auj, joursTravail: etat.reglages.joursTravail, feries: etat.reglages.feries });
 
   racine.innerHTML = `
     <header class="entete ${decor ? 'entete-toit' : ''}">
@@ -225,6 +242,8 @@ export function rendreAccueil(racine, _param, naviguer) {
       ${htmlJoursSemaine(sCourante, auj)}
       <button class="btn btn-principal btn-large" data-act="jour">${jAuj?.minutes ? 'Modifier ma journée' : 'Saisir ma journée'}</button>
     </section>
+
+    ${htmlOublies(oublies)}
 
     ${aDeLHistorique ? `
     <section class="carte" id="courbes"></section>
@@ -431,10 +450,28 @@ export function rendreAccueil(racine, _param, naviguer) {
     observateur.observe(zone);
   }
 
+  // Marque d'un coup les jours oubliés sans aucune heure (vacances de la construction, mise à pied…).
+  async function motifPourOublies() {
+    const vides = oublies.filter((o) => !o.incomplet);
+    const motif = await choisir({
+      titre: `Pas travaillé ces ${vides.length} jours`,
+      texte: vides.map((o) => formatDate(o.date)).join(', '),
+      options: Object.entries(MOTIFS_ABSENCE).map(([valeur, m]) => ({ valeur, label: m.nom })),
+    });
+    if (!motif) return;
+    for (const o of vides) {
+      const j = etat.jours.get(o.date);
+      await enregistrerJour({ date: o.date, debut: '', fin: '', pauseMin: 30, chantierId: null, note: '', ...(j ?? {}), absence: motif });
+    }
+    toast(`${vides.length} jours notés : ${MOTIFS_ABSENCE[motif].nom}`);
+    naviguer('accueil');
+  }
+
   racine.onclick = (ev) => {
     const b = ev.target.closest('button');
     if (!b) return;
     if (b.dataset.act === 'jour') return naviguer('jour', auj);
+    if (b.dataset.act === 'oublies-motif') return motifPourOublies();
     if (b.dataset.jour) return naviguer('jour', b.dataset.jour);
     if (b.dataset.sem) return naviguer('semaine', b.dataset.sem);
     if (b.dataset.paie) return naviguer('paie', b.dataset.paie);

@@ -3,7 +3,7 @@
 import * as db from './db.js';
 import { APP } from './config.js';
 import { FERIES, VACANCES_PCT, fusionnerGrilles } from './grilles.js';
-import { calculerSemaine } from './calcul.js';
+import { calculerSemaine, MOTIFS_ABSENCE } from './calcul.js';
 import { aujourdhui, debutDeSemaine, nomJour, formatHeuresDecimales } from './temps.js';
 
 export const FORMAT = 'suivi-heures-chantier';
@@ -28,6 +28,7 @@ export function reglagesParDefaut() {
     theme: 'sombre',
     fond: 'plan',
     ecranOuverture: 'accueil',
+    joursTravail: [1, 2, 3, 4, 5],
     profils: [{
       id: nouvelId(), dateEffet: '2025-01-01', employeur: '', secteur: 'ic', isole: false, gite: false,
       echelon: 'app1', tauxPerso: null, regles: null, vacancesPct: VACANCES_PCT,
@@ -52,7 +53,7 @@ function normaliser(r) {
   const out = { ...d, ...(r ?? {}) };
   out.carnet = { ...d.carnet, ...(r?.carnet ?? {}) };
   out.sauvegarde = { ...d.sauvegarde, ...(r?.sauvegarde ?? {}) };
-  for (const cle of ['profils', 'modeles', 'chantiers', 'primes', 'feries', 'grillesPerso', 'declarations']) {
+  for (const cle of ['profils', 'modeles', 'chantiers', 'primes', 'feries', 'grillesPerso', 'declarations', 'joursTravail']) {
     if (!Array.isArray(out[cle])) out[cle] = d[cle];
   }
   if (!out.profils.length) out.profils = d.profils;
@@ -203,7 +204,7 @@ function champCSV(v) {
 
 // CSV lisible dans Excel en français : séparateur « ; », virgule décimale, BOM UTF-8.
 export function exporterCSV() {
-  const entete = ['Date', 'Jour', 'Début', 'Fin', 'Pause (min)', 'Heures', 'Temps simple', 'Temps et demi', 'Temps double', 'Autre majoration', 'Taux horaire', 'Montant estimé', 'Férié', 'Chantier', 'Ville', 'Note'];
+  const entete = ['Date', 'Jour', 'Début', 'Fin', 'Pause (min)', 'Heures', 'Temps simple', 'Temps et demi', 'Temps double', 'Autre majoration', 'Taux horaire', 'Montant estimé', 'Férié', 'Pas travaillé', 'Chantier', 'Ville', 'Note'];
   const lignes = [entete];
   const nb = (x) => (typeof x === 'number' ? x.toFixed(2).replace('.', ',') : '');
   for (const sem of toutesLesSemaines()) {
@@ -216,7 +217,7 @@ export function exporterCSV() {
         formatHeuresDecimales(j.minutes),
         formatHeuresDecimales(min((m) => m === 1)), formatHeuresDecimales(min((m) => m === 1.5)), formatHeuresDecimales(min((m) => m === 2)),
         formatHeuresDecimales(min((m) => ![1, 1.5, 2].includes(m))),
-        nb(j.taux), nb(j.montant), j.ferie ? 'oui' : '', ch?.nom ?? '', ch?.ville ?? '', j.saisie.note ?? '',
+        nb(j.taux), nb(j.montant), j.ferie ? 'oui' : '', MOTIFS_ABSENCE[j.saisie.absence]?.nom ?? '', ch?.nom ?? '', ch?.ville ?? '', j.saisie.note ?? '',
       ]);
     }
   }

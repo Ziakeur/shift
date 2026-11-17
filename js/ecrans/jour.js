@@ -3,7 +3,7 @@
 
 import { etat, enregistrerJour, supprimerJour, dernierJourAvant, majReglages, nouvelId, chantier, debutSemaine, semaine, aujourdhui } from '../etat.js';
 import { ajouterJours, dureeQuart, formatDate, formatDuree, hhmmEnMinutes, minutesEnHhmm, nomJour } from '../temps.js';
-import { nomMultiplicateur, profilPourDate, tauxDuProfil } from '../calcul.js';
+import { nomMultiplicateur, profilPourDate, tauxDuProfil, MOTIFS_ABSENCE } from '../calcul.js';
 import { SECTEURS, ECHELONS } from '../grilles.js';
 import { esc, argent, toast, formulaire, confirmer, choisir, lienCarte } from '../ui.js';
 
@@ -22,7 +22,14 @@ function resumeQuart(j) {
 }
 
 function estVide(j) {
-  return !j.debut && !j.fin && !j.note && !j.chantierId && typeof j.ferie !== 'boolean';
+  return !j.debut && !j.fin && !j.note && !j.chantierId && typeof j.ferie !== 'boolean' && !j.absence && !j.primes?.length;
+}
+
+// Primes « à cocher » qui peuvent valoir ce jour-là (actives, dans leurs dates, sur ce chantier).
+function primesACocher(date, chantierId) {
+  return etat.reglages.primes.filter((p) => p.aCocher && p.actif !== false
+    && (!p.debut || date >= p.debut) && (!p.fin || date <= p.fin)
+    && (!p.chantierId || p.chantierId === chantierId));
 }
 
 // « Employeur · Convention · Échelon »
@@ -50,6 +57,8 @@ export function rendreJour(racine, date, naviguer) {
   const dansListeFeries = etat.reglages.feries.includes(date);
   let chantierId = fiche.chantierId ?? chantierPropose;
   if (chantierId && !chantier(chantierId)) chantierId = null;
+  let absence = fiche.absence ?? null;
+  const primesCochees = new Set(fiche.primes ?? []);
 
   const hier = ajouterJours(date, -1);
   const libelleHier = precedent ? (precedent.date === hier ? 'Comme hier' : `Comme ${nomJour(precedent.date)}`) : null;
@@ -111,6 +120,15 @@ export function rendreJour(racine, date, naviguer) {
 
     <section class="carte">
       <div class="champ">
+        <span>Pas travaillé ce jour-là</span>
+        <div class="puces" id="absences">
+          ${Object.entries(MOTIFS_ABSENCE).map(([cle, m]) => `<button class="puce" data-absence="${cle}">${esc(m.nom)}</button>`).join('')}
+        </div>
+      </div>
+    </section>
+
+    <section class="carte">
+      <div class="champ">
         <span>Chantier</span>
         <div class="puces" id="chantiers"></div>
       </div>
@@ -119,6 +137,10 @@ export function rendreJour(racine, date, naviguer) {
         <input type="checkbox" id="ferie">
         <span>Jour férié ou congé obligatoire (heures majorées)</span>
       </label>
+      <div class="champ" id="zone-primes" hidden>
+        <span>Primes de ce jour</span>
+        <div id="primes-jour"></div>
+      </div>
       <label class="champ">
         <span>Note</span>
         <textarea id="note" rows="2" placeholder="Tâche, météo, retard, témoin…">${esc(fiche.note ?? '')}</textarea>
@@ -140,6 +162,10 @@ export function rendreJour(racine, date, naviguer) {
       chantierId,
       note: champs.note.value.trim(),
     };
+    // Un quart complet efface le motif « pas travaillé ».
+    if (j.debut && j.fin) absence = null;
+    if (absence) j.absence = absence;
+    if (primesCochees.size) j.primes = [...primesCochees];
     // On ne retient le choix « férié » que s'il diffère de la liste des fériés.
     if (champs.ferie.checked !== dansListeFeries) j.ferie = champs.ferie.checked;
     return j;
@@ -174,17 +200,37 @@ export function rendreJour(racine, date, naviguer) {
       : (etat.reglages.chantiers.length ? 'Aucun chantier choisi pour cette journée.' : 'Ajoute un chantier pour savoir où tu as travaillé chaque jour.');
   }
 
+  function afficherPrimes() {
+    const dispo = primesACocher(date, chantierId);
+    // Une prime cochée qui ne s'applique plus (chantier changé, prime en pause) reste visible pour pouvoir la décocher.
+    const autres = [...primesCochees].map((id) => etat.reglages.primes.find((p) => p.id === id)).filter((p) => p && !dispo.includes(p));
+    const liste = [...dispo, ...autres];
+    $('#zone-primes').hidden = !liste.length;
+    $('#primes-jour').innerHTML = liste.map((p) => `
+      <label class="case"><input type="checkbox" data-prime="${esc(p.id)}" ${primesCochees.has(p.id) ? 'checked' : ''}>
+        <span>${esc(p.nom)} · ${esc(argent(p.montant))}${dispo.includes(p) ? '' : ' <span class="badge">ne compte pas ce jour-là</span>'}</span></label>`).join('');
+  }
+
   function afficher() {
     const j = lire();
     const aDesHeures = Boolean(j.debut && j.fin);
     for (const b of racine.querySelectorAll('[data-pause]')) b.classList.toggle('actif', Number(b.dataset.pause) === j.pauseMin);
+    for (const b of racine.querySelectorAll('[data-absence]')) {
+      b.classList.toggle('actif', b.dataset.absence === absence);
+      b.setAttribute('aria-pressed', String(b.dataset.absence === absence));
+    }
     afficherChantiers();
+    afficherPrimes();
     const enregistre = etat.jours.has(date);
     $('#effacer').hidden = !enregistre;
     $('#effacer-heures').hidden = !(j.debut || j.fin);
     $('#zone-effacer').hidden = $('#effacer').hidden && $('#effacer-heures').hidden;
 
     const resume = $('#resume');
+    if (!aDesHeures && absence) {
+      resume.innerHTML = `<div class="grand discret">Pas travaillé</div><p class="aide">${esc(MOTIFS_ABSENCE[absence]?.nom ?? absence)}. Touche le motif de nouveau pour le retirer.</p>`;
+      return;
+    }
     if (!aDesHeures) {
       const manque = j.debut ? 'Il manque l\'heure de fin.' : j.fin ? 'Il manque l\'heure de début.' : 'Aucune heure saisie.';
       resume.innerHTML = `<div class="grand discret">0 h</div><p class="aide">${manque}</p>`;
@@ -253,6 +299,26 @@ export function rendreJour(racine, date, naviguer) {
     if (!id) return;
     chantierId = id;
     enregistrer();
+  }
+
+  // Un appui sur le motif déjà choisi le retire. Des heures déjà saisies ne sont effacées qu'après confirmation.
+  async function choisirAbsence(motif) {
+    if (motif === absence) {
+      absence = null;
+      return enregistrer();
+    }
+    const nom = MOTIFS_ABSENCE[motif]?.nom ?? motif;
+    if (champs.debut.value || champs.fin.value) {
+      const ok = await confirmer({ titre: `Noter « ${nom} » ?`, texte: `Les heures du ${formatDate(date)} seront effacées. Le chantier et la note restent.`, oui: 'Effacer les heures', danger: true });
+      if (!ok) return undefined;
+      champs.debut.value = '';
+      champs.fin.value = '';
+      champs.pause.value = PAUSE_DEFAUT;
+    }
+    // Le chantier repris de la veille n'a pas de sens un jour sans travail, sauf arrêt pour la météo sur ce chantier.
+    if (motif !== 'intemperie' && !existant?.chantierId && chantierId === chantierPropose) chantierId = null;
+    absence = motif;
+    return enregistrer({ message: `Noté : ${nom}` });
   }
 
   // Bascule vers un réglage déjà utilisé (autre employeur, autre convention, autre échelon).
@@ -327,6 +393,7 @@ export function rendreJour(racine, date, naviguer) {
       chantierId = b.dataset.chantier === chantierId ? null : b.dataset.chantier;
       return enregistrer();
     }
+    if (b.dataset.absence) return choisirAbsence(b.dataset.absence);
     if (b.dataset.act === 'chantiers-autres') return autresChantiers();
     if (b.dataset.act === 'chantier-nouveau') return nouveauChantier();
     if (b.dataset.act === 'effacer-heures') {
@@ -351,6 +418,11 @@ export function rendreJour(racine, date, naviguer) {
     if (ev.target.id === 'choix-date') {
       if (ev.target.value) naviguer('jour', ev.target.value);
       return;
+    }
+    if (ev.target.dataset.prime) {
+      if (ev.target.checked) primesCochees.add(ev.target.dataset.prime);
+      else primesCochees.delete(ev.target.dataset.prime);
+      return enregistrer();
     }
     if (['debut', 'fin', 'pause', 'ferie', 'note'].includes(ev.target.id)) enregistrer();
   };

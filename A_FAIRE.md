@@ -1,6 +1,6 @@
 # À faire
 
-État au 16 novembre 2026 : version 0.5.2 (aide-mémoire « Convention collective », mention de l'auteur) en ligne depuis le 17 novembre 2026 sur https://ziakeur.github.io/shift/, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
+État au 17 novembre 2026 : version 0.5.2 (aide-mémoire « Convention collective », mention de l'auteur) en ligne depuis le 17 novembre 2026 sur https://ziakeur.github.io/shift/, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
 Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAUDE.md`.
 
 ## 0. Fait le 17 novembre 2026 : version 0.5.2 en ligne (accord de l'utilisateur)

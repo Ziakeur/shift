@@ -1,7 +1,14 @@
 # À faire
 
-État au 17 novembre 2026 : version 0.6.0 en ligne (voir section 0) ; avant elle, version 0.5.2 (aide-mémoire « Convention collective », mention de l'auteur) en ligne depuis le 17 novembre 2026 sur https://ziakeur.github.io/shift/, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
+État au 17 novembre 2026 : **version 0.7.0 prête sur ce PC, ni commitée ni publiée** (voir section 00) ; version 0.6.0 en ligne (voir section 0) ; avant elle, version 0.5.2 (aide-mémoire « Convention collective », mention de l'auteur) en ligne depuis le 17 novembre 2026 sur https://ziakeur.github.io/shift/, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
 Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAUDE.md`.
+
+## 00. Version 0.7.0 : faite le 17 novembre 2026, à faire valider puis publier
+- Demandée par l'utilisateur : estimation du régime d'assurance selon les heures avec la période couverte ; cinq onglets (Accueil, Shift, Paie, Profil, Réglages) ; Shift = Jour avec bascule vers Semaine ; Paie au milieu, un peu plus grand ; Profil = « Mon travail » des réglages et assurance ; Réglages allégés, couleurs, fond et préférences plus faciles.
+- **Choix faits sans demande, à confirmer** : le carnet d'apprentissage est passé dans Profil (son onglet disparaît) ; choix de la couleur des boutons (ambre, vert, bleu, violet) ; sur l'écran Semaine, une ligne « Salaire brut estimé » qui ouvre la paie ; l'ancienne page « Affichage et semaine » est remplacée par les cartes « Apparence » et « Préférences » de la première page des réglages ; carte MÉDIC facultative (régime, réserve) pour tenir compte de la réserve.
+- Assurance : seuils et dates lus sur ccq.org (page « Assurance de base ») le 17 novembre 2026. Non lu : conditions d'une première assurance. Voir « Limites connues » dans `CLAUDE.md`.
+- Vérifié dans un Chrome de test au format téléphone (390 px), données fictives : les cinq onglets, Profil, Mon assurance, carte avec réserve, Réglages (thème clair, couleur, fond, semaine de paie), bascule Jour / Semaine, anciennes adresses redirigées, aucun défilement de côté, aucune erreur. Mise à jour 0.6.0 vers 0.7.0 par le bandeau : données intactes, écran « Carnet » rouvert dans Profil ; ouverture sans réseau.
+- Pas vu sur un vrai téléphone. Avant de publier : commit, puis `git push` avec l'accord de l'utilisateur.
 
 ## 0. Version 0.6.0 en ligne le 17 novembre 2026 (accord de l'utilisateur)
 - Demandée par l'utilisateur (propositions 2, 5, 6, 7) : jours oubliés et motif « pas travaillé », primes à cocher par jour, relevé imprimable en PDF, paies de vacances par semestre (écran Paie).
@@ -19,7 +26,7 @@ Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAU
 ## 0 bis. En attente de l'avis de l'utilisateur
 - **Version 0.5.0 en ligne** depuis le 16 novembre 2026, avec l'accord de l'utilisateur. Vérifié sur le site public dans un Chrome de test : passage 0.4.0 vers 0.5.0 par le bandeau « Mettre à jour », NIP hors ligne. Toute nouvelle publication demande de nouveau son accord.
 - **NIP** : testé dans un Chrome de test (activer, ouvrir, NIP faux, blocage après 5 essais, retour après une absence, NIP oublié, hors ligne). Pas testé sur un vrai téléphone : bouton retour d'Android sur l'écran du NIP, retour dans l'app après une minute.
-- **Fond** : la demande était « peut-être un fond en rapport avec la construction ». Fait : quadrillage de plan, ferme de toit sur l'accueil, ossature sur l'écran du NIP. À faire valider ; se coupe dans Réglages, Affichage et semaine.
+- **Fond** : la demande était « peut-être un fond en rapport avec la construction ». Fait : quadrillage de plan, ferme de toit sur l'accueil, ossature sur l'écran du NIP. À faire valider ; se coupe dans Réglages, Apparence.
 - **Accueil** (version 0.4.0) : courbes lissées, bandeau de chiffres qui suit le doigt, bâtons de la semaine en cours. C'est toujours un essai : demander ce qui plaît ou non avant d'aller plus loin.
 - **Icône** : faite à partir de `icons/source-shift.png`. À voir sur le téléphone une fois l'app installée (icône ronde ou carrée selon le téléphone, écran de démarrage).
 - **Chantiers** : ajout non demandé, à confirmer : un chantier noté sur des journées ne peut plus être supprimé (seulement renommé), pour ne pas perdre la trace. Si ça gêne, retirer `supprimer: !usage.nb` dans `defChantier` (`js/ecrans/reglages.js`).
@@ -32,7 +39,7 @@ Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAU
 - À faire par l'utilisateur : installer l'app sur son téléphone, activer la validation en deux étapes sur son compte GitHub (non vérifiable d'ici).
 
 ## 2. Vérifications restantes
-- Sur un vrai téléphone Android : installation sur l'écran d'accueil, icône et écran de démarrage, sélecteur d'heure, partage de la sauvegarde vers Drive, six onglets lisibles sur un petit écran.
+- Sur un vrai téléphone Android : installation sur l'écran d'accueil, icône et écran de démarrage, sélecteur d'heure, partage de la sauvegarde vers Drive, cinq onglets lisibles sur un petit écran (Paie un peu plus grand).
 - Courbes au doigt sur un vrai téléphone. Testé seulement dans Chrome sur PC avec un doigt simulé (appui, glissement de côté, défilement vertical, bandeau collé en haut).
 - Ouverture du CSV dans Excel.
 - Courbes et ligne du temps avec plusieurs années d'historique (testées sur quatre mois de données fictives).
@@ -46,5 +53,6 @@ Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAU
 ## 4. Chiffres encore à vérifier sur source officielle
 - Taux 2027-2028 en institutionnel-commercial (annexes C et C-1) et en génie civil ; annexe D-1.
 - Poids d'une heure supplémentaire au carnet (hypothèse actuelle : 1 h = 1 h).
+- Assurance : conditions d'une première assurance (nouveau salarié) ; périodes de référence au-delà du 28 août 2027, quand la CCQ les publiera.
 - Date d'effet exacte des colonnes 2027 et 2028 des annexes résidentielles.
 - Semaine de paie : la CCQ compte les semaines du dimanche au samedi pour le rapport mensuel (guide PD5277F, lu le 16 novembre 2026). Que la paie de chaque employeur suive ce découpage n'est pas vérifié : l'utilisateur le voit sur son talon.

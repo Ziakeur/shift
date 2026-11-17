@@ -1,9 +1,15 @@
-// Écran « Semaine » : totaux par catégorie de temps et détail par jour.
+// Écran « Semaine » (onglet Shift, vue Semaine) : totaux par catégorie de temps, brut estimé et détail par jour.
 
 import { etat, semaine, debutSemaine, enregistrerJour, supprimerJour, chantier, dernierJourAvant, aujourdhui } from '../etat.js';
 import { ajouterJours, formatDate, formatDuree, jourSemaine, nomJour } from '../temps.js';
 import { nomMultiplicateur, MOTIFS_ABSENCE } from '../calcul.js';
-import { esc, toast, choisir, confirmer } from '../ui.js';
+import { esc, argent, toast, choisir, confirmer } from '../ui.js';
+
+// Bascule de l'onglet Shift : la saisie du jour, ou la semaine entière.
+export function htmlVueShift(vue) {
+  const b = (cle, nom) => `<button class="puce puce-petite ${cle === vue ? 'actif' : ''}" data-vue="${cle}" aria-pressed="${cle === vue}">${nom}</button>`;
+  return `<div class="segments segments-2 vue-shift" role="group" aria-label="Vue">${b('jour', 'Jour')}${b('semaine', 'Semaine')}</div>`;
+}
 
 export function titreSemaine(debut) {
   const fin = ajouterJours(debut, 6);
@@ -36,11 +42,14 @@ export function rendreSemaine(racine, debut, naviguer) {
   const cartes = [1, 1.5, 2].map((m) => ({ mult: m, minutes: s.totaux.find((t) => t.mult === m)?.minutes ?? 0 }));
   const autres = s.totaux.filter((t) => ![1, 1.5, 2].includes(t.mult));
 
+  const nbJours = s.jours.filter((j) => j.minutes > 0).length;
+
   racine.innerHTML = `
+    ${htmlVueShift('semaine')}
     ${enteteSemaine(debut, courante)}
     <section class="carte resume">
       <div class="grand">${esc(formatDuree(s.minutesTotal))}</div>
-      <p class="sous">${s.jours.filter((j) => j.minutes > 0).length} jour(s) travaillé(s)</p>
+      <p class="sous">${nbJours} jour${nbJours > 1 ? 's' : ''} travaillé${nbJours > 1 ? 's' : ''}</p>
     </section>
     <section class="trio">
       ${[...cartes, ...autres].map((c) => `
@@ -49,6 +58,10 @@ export function rendreSemaine(racine, debut, naviguer) {
           <strong>${esc(formatDuree(c.minutes))}</strong>
         </div>`).join('')}
     </section>
+    <button class="rangee" data-act="paie">
+      <span class="rangee-corps"><small>Salaire brut estimé de la semaine</small><strong>${s.minutesTotal ? esc(argent(s.brut)) : '—'}</strong>${s.tauxManquant ? '<small class="texte-alerte">Incomplet : des heures n\'ont pas de taux</small>' : '<small>Détail, vacances et talon dans Paie</small>'}</span>
+      <span class="chevron" aria-hidden="true">›</span>
+    </button>
     <section class="liste">
       ${s.jours.map((j) => {
         const ch = chantier(j.chantierId);
@@ -68,14 +81,21 @@ export function rendreSemaine(racine, debut, naviguer) {
         </div>`;
       }).join('')}
     </section>
-    <button class="btn btn-large" data-act="remplir">Remplir les jours vides avec un modèle</button>
-    <p class="aide centre">Règles appliquées : ${esc(s.jours.at(-1).regles ? `${s.jours.at(-1).regles.seuilJour} h par jour, ${s.jours.at(-1).regles.seuilSemaine} h par semaine` : 'aucune')}. Modifiable dans Réglages, Mon emploi.</p>
+    <button class="btn btn-large" data-act="remplir">Remplir les jours vides avec un horaire habituel</button>
+    <p class="aide centre">Règles appliquées : ${esc(s.jours.at(-1).regles ? `${s.jours.at(-1).regles.seuilJour} h par jour, ${s.jours.at(-1).regles.seuilSemaine} h par semaine` : 'aucune')}. Modifiable dans Profil, Mon emploi.</p>
   `;
 
   racine.onchange = null;
   racine.onclick = async (ev) => {
     const b = ev.target.closest('button');
     if (!b) return;
+    if (b.dataset.vue === 'jour') {
+      // Aujourd'hui si on regarde cette semaine ; sinon la première journée notée de la semaine.
+      const fin = ajouterJours(debut, 6);
+      return naviguer('jour', auj >= debut && auj <= fin ? auj : (s.jours.find((j) => j.saisie)?.date ?? debut));
+    }
+    if (b.dataset.vue) return;
+    if (b.dataset.act === 'paie') return naviguer('paie', debut);
     if (b.dataset.act === 'prec') return naviguer('semaine', ajouterJours(debut, -7));
     if (b.dataset.act === 'suiv') return naviguer('semaine', ajouterJours(debut, 7));
     if (b.dataset.act === 'courante') return naviguer('semaine', courante);
@@ -90,7 +110,7 @@ export function rendreSemaine(racine, debut, naviguer) {
     if (b.dataset.jour) return naviguer('jour', b.dataset.jour);
     if (b.dataset.act === 'remplir') {
       const modeles = etat.reglages.modeles.filter((m) => m.jours?.length);
-      if (!modeles.length) return toast('Aucun modèle avec des jours cochés. Crée-en un dans les réglages.', 'erreur');
+      if (!modeles.length) return toast('Aucun horaire habituel avec des jours cochés. Crée-en un dans Profil, Mes horaires habituels.', 'erreur');
       const id = await choisir({
         titre: 'Remplir la semaine',
         texte: 'Seuls les jours sans heures ni motif « pas travaillé » sont remplis. Rien n\'est écrasé.',

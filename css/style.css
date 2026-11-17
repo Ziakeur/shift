@@ -22,6 +22,8 @@
   /* Courbes de l'accueil : brut estimé et net reçu, paire vérifiée de la même façon. */
   --c-brut: #9085e9;
   --c-net: #0ca30c;
+  /* L'accent posé comme texte ou comme trait sur une surface (onglet actif). */
+  --accent-texte: var(--accent);
   --rayon: 14px;
   --touche: 56px;
   color-scheme: dark;
@@ -36,6 +38,7 @@
   --discret: #55595f;
   --accent: #f0a000;
   --sur-accent: #1a1300;
+  --accent-texte: #8a5a00;
   --ok: #12703c;
   --danger: #b3261e;
   --info: #0b5cab;
@@ -48,6 +51,15 @@
   --c-net: #008300;
   color-scheme: light;
 }
+
+/* Couleur des boutons (Réglages, Apparence). L'ambre est la couleur de départ. Chaque couleur a sa version
+   pour le thème clair, et une teinte plus sombre pour s'écrire sur une surface claire. */
+:root[data-accent="vert"] { --accent: #8fd14f; --sur-accent: #0f1c02; }
+:root[data-accent="bleu"] { --accent: #6cb6ff; --sur-accent: #03182b; }
+:root[data-accent="violet"] { --accent: #b9a2ff; --sur-accent: #150a33; }
+:root[data-theme="clair"][data-accent="vert"] { --accent: #7cc23a; --accent-texte: #3d6410; }
+:root[data-theme="clair"][data-accent="bleu"] { --accent: #58a6f5; --accent-texte: #0b5cab; }
+:root[data-theme="clair"][data-accent="violet"] { --accent: #a58cf5; --accent-texte: #5a3fc0; }
 
 * { box-sizing: border-box; }
 
@@ -223,7 +235,7 @@ details:not(.section) summary { cursor: pointer; color: var(--info); font-size: 
 /* Barre d'onglets */
 .onglets {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
-  display: grid; grid-template-columns: repeat(6, 1fr);
+  display: grid; grid-template-columns: 1fr 1fr 1.2fr 1fr 1fr;
   background: var(--surface); border-top: 1px solid var(--bord);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -232,8 +244,10 @@ details:not(.section) summary { cursor: pointer; color: var(--info); font-size: 
   min-height: 68px; color: var(--discret); text-decoration: none; font-size: .75rem; font-weight: 600;
 }
 .onglets svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.onglets a.actif { color: var(--accent); }
-:root[data-theme="clair"] .onglets a.actif { color: var(--m15); }
+.onglets a.actif { color: var(--accent-texte); }
+/* L'onglet du milieu (Paie) est un peu plus grand que les quatre autres. */
+.onglets a.onglet-centre { font-size: .84rem; font-weight: 700; line-height: 1.25; }
+.onglets a.onglet-centre svg { transform: scale(1.25); transform-origin: center 85%; }
 
 /* Bandeau (rappel de sauvegarde, mise à jour) */
 .bandeau {
@@ -538,3 +552,65 @@ dialog.verrou.bloque .verrou-clavier button[data-chiffre] { opacity: .35; }
 }
 .rl-ecran .duo .champ { min-width: 0; }
 .rl-ecran input[type="date"] { width: 100%; min-width: 0; }
+
+/* Onglet Shift : bascule Jour / Semaine en haut de l'écran */
+.vue-shift .puce { min-height: 44px; }
+
+/* Onglet Profil */
+.profil-tete { align-items: center; text-align: center; gap: 8px; }
+.profil-tete .duo, .profil-tete .btn { align-self: stretch; }
+.profil-nom { font-size: 1.5rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+.carte h2 .badge { vertical-align: middle; margin-left: 4px; }
+
+/* Régime d'assurance, période du carnet : une grande lettre et son explication */
+.regime { display: flex; align-items: center; gap: 12px; }
+.regime-lettre {
+  width: 56px; height: 56px; flex: none; display: flex; align-items: center; justify-content: center;
+  border-radius: 14px; background: var(--accent); color: var(--sur-accent); font-size: 1.8rem; font-weight: 800;
+}
+.regime-lettre.vide { background: var(--surface-2); color: var(--discret); border: 1px solid var(--bord); }
+.regime-corps { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.regime-corps strong { font-size: 1.15rem; }
+
+/* Échelle des régimes : les heures de la période, un repère par seuil */
+.paliers { position: relative; padding-bottom: 38px; }
+.paliers-barre { height: 14px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--bord); overflow: hidden; }
+.paliers-barre span { display: block; height: 100%; background: var(--accent); }
+.paliers-reperes span {
+  position: absolute; top: 0; display: flex; flex-direction: column; align-items: center; line-height: 1.15;
+  transform: translateX(-50%); color: var(--discret);
+}
+.paliers-reperes span::before { content: ""; width: 2px; height: 18px; margin-bottom: 2px; background: var(--discret); }
+.paliers-reperes span:last-child { transform: translateX(-100%); align-items: flex-end; }
+.paliers-reperes b { font-size: .9rem; }
+.paliers-reperes small { font-size: .7rem; white-space: nowrap; }
+.paliers-reperes .atteint, .paliers-reperes .atteint small { color: var(--texte); }
+.paliers-reperes .atteint::before { background: var(--texte); }
+
+/* Réglages : choix en un appui (thème, couleur, fond, préférences) */
+.choix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.choix-2 { grid-template-columns: repeat(2, 1fr); }
+.choix-4 { grid-template-columns: repeat(4, 1fr); }
+.choix-case {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 64px; padding: 8px 4px;
+  border-radius: var(--rayon); border: 1px solid var(--bord); background: var(--surface-2); font-size: .85rem; font-weight: 600; text-align: center;
+}
+.choix-case:active { transform: scale(.97); }
+.choix-case.actif { border: 2px solid var(--accent-texte); padding: 7px 3px; }
+.choix-case.actif > span:last-child::before { content: "✓ "; }
+.choix-texte .apercu { display: none; }
+.apercu { width: 100%; max-width: 72px; height: 30px; border-radius: 8px; border: 1px solid var(--bord); }
+.apercu-sombre { background: linear-gradient(#f4f3ef, #f4f3ef) 8px 8px / 24px 4px no-repeat, #101214; }
+.apercu-clair { background: linear-gradient(#15171a, #15171a) 8px 8px / 24px 4px no-repeat, #f4f2ec; }
+.apercu-auto { background: linear-gradient(90deg, #101214 50%, #f4f2ec 50%); }
+.apercu-accent { width: 30px; border-radius: 50%; border: 0; }
+.apercu-ambre { background: #ffb224; }
+.apercu-vert { background: #8fd14f; }
+.apercu-bleu { background: #6cb6ff; }
+.apercu-violet { background: #b9a2ff; }
+.apercu-plan {
+  background-color: var(--fond);
+  background-image: linear-gradient(var(--discret) 1px, transparent 1px), linear-gradient(90deg, var(--discret) 1px, transparent 1px);
+  background-size: 10px 10px;
+}
+.apercu-uni { background: var(--fond); }

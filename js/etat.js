@@ -27,6 +27,7 @@ export function reglagesParDefaut() {
     debutSemaine: 0,
     theme: 'sombre',
     fond: 'plan',
+    accent: 'ambre',
     ecranOuverture: 'accueil',
     joursTravail: [1, 2, 3, 4, 5],
     profils: [{
@@ -43,6 +44,7 @@ export function reglagesParDefaut() {
     grillesPerso: [],
     carnet: { heuresDepart: null, dateDepart: null, credits: null, creditsUtilises: 0, facteurSupp: 1 },
     declarations: [],
+    assurance: { cartePeriode: null, carteRegime: null, reserve: null },
     sauvegarde: { dernierExport: null, rappelJours: 7 },
   };
 }
@@ -53,6 +55,7 @@ function normaliser(r) {
   const out = { ...d, ...(r ?? {}) };
   out.carnet = { ...d.carnet, ...(r?.carnet ?? {}) };
   out.sauvegarde = { ...d.sauvegarde, ...(r?.sauvegarde ?? {}) };
+  out.assurance = { ...d.assurance, ...(r?.assurance ?? {}) };
   for (const cle of ['profils', 'modeles', 'chantiers', 'primes', 'feries', 'grillesPerso', 'declarations', 'joursTravail']) {
     if (!Array.isArray(out[cle])) out[cle] = d[cle];
   }

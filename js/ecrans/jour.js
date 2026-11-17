@@ -6,6 +6,7 @@ import { ajouterJours, dureeQuart, formatDate, formatDuree, hhmmEnMinutes, minut
 import { nomMultiplicateur, profilPourDate, tauxDuProfil, MOTIFS_ABSENCE } from '../calcul.js';
 import { SECTEURS, ECHELONS } from '../grilles.js';
 import { esc, argent, toast, formulaire, confirmer, choisir, lienCarte } from '../ui.js';
+import { htmlVueShift } from './semaine.js';
 
 const PAUSES = [0, 15, 30, 45, 60];
 const PAUSE_DEFAUT = 30;
@@ -67,6 +68,7 @@ export function rendreJour(racine, date, naviguer) {
   const profil = profilPourDate(etat.reglages.profils, date);
 
   racine.innerHTML = `
+    ${htmlVueShift('jour')}
     <header class="entete">
       <button class="btn-icone" data-act="prec" aria-label="Jour précédent">‹</button>
       <button class="entete-titre" data-act="date">
@@ -93,7 +95,7 @@ export function rendreJour(racine, date, naviguer) {
     <section class="rapides" aria-label="Saisie rapide">
       ${libelleHier ? `<button class="btn btn-rapide" data-act="hier"><strong>${esc(libelleHier)}</strong><small>${esc(resumeQuart(precedent))}</small></button>` : ''}
       ${modeles.map((m) => `<button class="btn btn-rapide" data-modele="${esc(m.id)}"><strong>${esc(m.nom)}</strong><small>${esc(resumeQuart(m))}</small></button>`).join('')}
-      ${!modeles.length && !libelleHier ? '<p class="aide">Crée un modèle d\'horaire dans les réglages pour saisir une journée en un seul appui.</p>' : ''}
+      ${!modeles.length && !libelleHier ? '<p class="aide">Crée un horaire habituel dans Profil, Mes horaires habituels, pour saisir une journée en un seul appui.</p>' : ''}
     </section>
 
     <section class="carte">
@@ -346,7 +348,7 @@ export function rendreJour(racine, date, naviguer) {
       ],
     });
     if (!choix) return;
-    if (choix === '__reglages') return naviguer('reglages', 'emploi');
+    if (choix === '__reglages') return naviguer('profil', 'emploi');
     const modele = profils.find((p) => p.id === choix);
     if (!modele) return;
     await file;
@@ -362,6 +364,8 @@ export function rendreJour(racine, date, naviguer) {
   racine.onclick = async (ev) => {
     const b = ev.target.closest('button');
     if (!b) return;
+    if (b.dataset.vue === 'semaine') return naviguer('semaine', debutSemaine(date));
+    if (b.dataset.vue) return;
     if (b.dataset.act === 'prec') return naviguer('jour', ajouterJours(date, -1));
     if (b.dataset.act === 'suiv') return naviguer('jour', ajouterJours(date, 1));
     if (b.dataset.act === 'auj') return naviguer('jour', auj);

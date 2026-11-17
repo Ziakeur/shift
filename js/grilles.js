@@ -194,6 +194,34 @@ export const FERIES = [
   '2029-01-01', '2029-03-30', '2029-04-02',
 ];
 
+// Assurance collective de l'industrie (MÉDIC Construction), régimes de base obtenus par les heures.
+// Tout est lu sur la page « Assurance de base » de ccq.org le 17 novembre 2026. Le tableau de la CCQ ne donne
+// que ces quatre périodes : en ajouter une seulement après l'avoir lue sur la page (ne pas déduire les dates).
+export const ASSURANCE = {
+  regimes: [
+    { cle: 'A', heures: 750 },
+    { cle: 'B', heures: 600 },
+    { cle: 'C', heures: 450 },
+    { cle: 'D', heures: 300 },
+  ],
+  periodes: [
+    { refDebut: '2025-08-31', refFin: '2026-02-28', assDebut: '2026-07-01', assFin: '2026-12-31' },
+    { refDebut: '2026-03-01', refFin: '2026-08-29', assDebut: '2027-01-01', assFin: '2027-06-30' },
+    { refDebut: '2026-08-30', refFin: '2027-02-27', assDebut: '2027-07-01', assFin: '2027-12-31' },
+    { refDebut: '2027-02-28', refFin: '2027-08-28', assDebut: '2028-01-01', assFin: '2028-06-30' },
+  ],
+  luLe: '2026-11-17',
+  url: 'https://www.ccq.org/fr-CA/avantages-sociaux/medic-construction/assurance-de-base',
+  sources: [
+    'Deux périodes d\'assurance par année, de six mois : janvier à juin et juillet à décembre. Les heures accumulées pendant la période de référence donnent le régime de la période d\'assurance correspondante.',
+    'Heures requises par période de référence : régime A 750 h, B 600 h, C 450 h, D 300 h. Le régime A est le plus complet, le D donne une couverture minimale. Le salarié obtient le meilleur régime possible selon ses heures.',
+    'Heures comptées : les heures travaillées déclarées à la CCQ par les employeurs, les heures créditées pour du travail hors Québec (entente de réciprocité) et les crédits d\'heures en cas d\'invalidité.',
+    'Réserve : les heures au-delà du nombre requis sont mises en réserve. S\'il manque des heures, la réserve sert à obtenir le meilleur régime possible, sans dépasser celui de la période d\'assurance précédente. Le nombre d\'heures en réserve est inscrit sur la carte MÉDIC Construction.',
+    'Quand la cotisation d\'assurance par heure augmente, les heures en réserve sont ajustées à la baisse. Sans régime A, B, C ou D pendant une période, les heures de la période de référence ne vont pas à la réserve ; sans régime pendant deux périodes de suite, la réserve est perdue.',
+  ],
+  aVerifier: 'Non lu sur la source : les conditions pour une toute première assurance (nouveau salarié), et le détail des protections de chaque régime. L\'app compte 1 h travaillée = 1 h, majorée ou non, d\'après « heures travaillées déclarées ». Les crédits de formation versés à la réserve, les primes à payer (régimes C et Z) et l\'ajustement de la réserve ne sont pas calculés.',
+};
+
 export const CARNET = {
   parPeriode: 2000,
   periodes: 3,

@@ -1,4 +1,5 @@
-// Écran « Carnet » : progression de l'apprentissage et comparaison avec les heures déclarées à la CCQ.
+// Page « Carnet d'apprentissage » de l'onglet Profil (#/profil/carnet) : progression de l'apprentissage
+// et comparaison avec les heures déclarées à la CCQ.
 
 import { etat, majReglages, toutesLesSemaines, debutSemaine, nouvelId, aujourdhui } from '../etat.js';
 import { formatDate } from '../temps.js';
@@ -28,8 +29,8 @@ function somme(map, debut, fin) {
 
 const h = (n) => `${nombre(Math.round(n * 100) / 100)} h`;
 
-export function rendreCarnet(racine, _param, naviguer) {
-  const auj = aujourdhui();
+// Tout ce que le carnet affiche, calculé une fois (sert aussi au résumé de l'onglet Profil).
+export function calculerCarnet(auj) {
   const c = etat.reglages.carnet;
   const semaines = toutesLesSemaines();
   const parJour = heuresParJour(semaines, c.facteurSupp || 1);
@@ -46,20 +47,30 @@ export function rendreCarnet(racine, _param, naviguer) {
   const estimation = dateEstimee(auj, e.restant, moyenne);
   const pct = Math.min(100, Math.max(0, ((e.progression - e.debutPeriode) / (e.prochainSeuil - e.debutPeriode || 1)) * 100));
 
-  const echelonProfil = profilPourDate(etat.reglages.profils, auj)?.echelon;
-  const echelonCarnet = e.termine ? null : `app${e.periode}`;
-  const incoherent = configure && echelonCarnet && echelonProfil && echelonProfil !== 'compagnon' && echelonProfil !== echelonCarnet;
-
   const prochainTexte = e.termine
     ? 'Heures d\'apprentissage complétées selon ce décompte.'
     : e.prochain === 'fin'
       ? `Reste ${h(e.restant)} avant la fin de l'apprentissage${e.reserve ? `, en comptant ta réserve de ${h(e.reserve)}` : ''}`
       : `Reste ${h(e.restant)} avant la période ${e.periode + 1}`;
+  return { c, parJour, configure, heuresApp, e, completes, moyenne, estimation, pct, prochainTexte };
+}
+
+export function rendreCarnet(racine, _param, naviguer) {
+  const auj = aujourdhui();
+  const { c, parJour, configure, heuresApp, e, completes, moyenne, estimation, pct, prochainTexte } = calculerCarnet(auj);
+
+  const echelonProfil = profilPourDate(etat.reglages.profils, auj)?.echelon;
+  const echelonCarnet = e.termine ? null : `app${e.periode}`;
+  const incoherent = configure && echelonCarnet && echelonProfil && echelonProfil !== 'compagnon' && echelonProfil !== echelonCarnet;
 
   const declarations = [...etat.reglages.declarations].sort((a, b) => b.fin.localeCompare(a.fin));
 
   racine.innerHTML = `
-    <header class="entete"><div class="entete-titre"><strong>Carnet d'apprentissage</strong><small>Charpentier-menuisier, ${CARNET.periodes} périodes de ${nombre(CARNET.parPeriode)} h</small></div></header>
+    <header class="entete">
+      <button class="btn-icone" data-act="retour" aria-label="Retour au profil">‹</button>
+      <div class="entete-titre"><strong>Carnet d'apprentissage</strong><small>Charpentier-menuisier, ${CARNET.periodes} périodes de ${nombre(CARNET.parPeriode)} h</small></div>
+      <span class="entete-vide" aria-hidden="true"></span>
+    </header>
 
     ${!configure ? '<p class="alerte">Entre d\'abord le solde lu dans ton dossier CCQ (bouton plus bas). En attendant, le décompte part de zéro.</p>' : ''}
 
@@ -84,7 +95,7 @@ export function rendreCarnet(racine, _param, naviguer) {
       <p class="aide">Pour utiliser des crédits, appelle la CCQ (1 888 842-8282), puis inscris les heures versées dans « Modifier mon dossier ». Une réserve plus grande qu'une période peut te faire sauter un échelon : demande à la CCQ si tu peux n'en utiliser qu'une partie.</p>
     </section>` : ''}
 
-    ${incoherent ? `<p class="alerte">Ton profil de paie est réglé sur « ${esc(ECHELONS[echelonProfil])} », mais ce décompte te place en période ${e.periode}. Vérifie ton dossier CCQ, puis ajuste le profil ou le carnet. Au changement de période, l'employeur doit ajuster ton taux, rétroactivement s'il a tardé.</p>` : ''}
+    ${incoherent ? `<p class="alerte">Dans Profil, Mon emploi, ton échelon est « ${esc(ECHELONS[echelonProfil])} », mais ce décompte te place en période ${e.periode}. Vérifie ton dossier CCQ, puis ajuste ton échelon ou le carnet. Au changement de période, l'employeur doit ajuster ton taux, rétroactivement s'il a tardé.</p>` : ''}
 
     <section class="carte">
       <h2>Décompte</h2>
@@ -151,7 +162,7 @@ export function rendreCarnet(racine, _param, naviguer) {
       delete reg.carnet.creditsMode;
     });
     toast('Dossier enregistré');
-    naviguer('carnet');
+    naviguer('profil', 'carnet');
   }
 
   async function editerDeclaration(existante) {
@@ -173,11 +184,12 @@ export function rendreCarnet(racine, _param, naviguer) {
       reg.declarations = reg.declarations.filter((d) => d.id !== existante?.id);
       if (r.action === 'ok') reg.declarations.push({ id: existante?.id ?? nouvelId(), ...r.valeurs });
     });
-    naviguer('carnet');
+    naviguer('profil', 'carnet');
   }
 
   racine.onclick = (ev) => {
     const b = ev.target.closest('button');
+    if (b?.dataset.act === 'retour') return naviguer('profil');
     if (b?.dataset.act === 'dossier') return editerDossier();
     if (b?.dataset.act === 'declarer') return editerDeclaration(null);
     const ligne = ev.target.closest('tr[data-decl]');

@@ -1,6 +1,6 @@
 {
   "name": "suivi-heures-chantier",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "Suivi d'heures personnel pour apprenti de la construction au Québec. Application personnelle, non officielle.",

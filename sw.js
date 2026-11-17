@@ -2,7 +2,7 @@
 // À CHAQUE PUBLICATION : augmenter VERSION (même valeur que dans js/config.js).
 // Si un fichier est ajouté à l'app, l'ajouter aussi à FICHIERS.
 
-const VERSION = '0.6.0';
+const VERSION = '0.7.0';
 const CACHE = `heures-${VERSION}`;
 
 const FICHIERS = [
@@ -18,6 +18,7 @@ const FICHIERS = [
   'js/temps.js',
   'js/calcul.js',
   'js/carnet.js',
+  'js/assurance.js',
   'js/grilles.js',
   'js/convention.js',
   'js/recap.js',
@@ -30,6 +31,7 @@ const FICHIERS = [
   'js/ecrans/semaine.js',
   'js/ecrans/paie.js',
   'js/ecrans/carnet.js',
+  'js/ecrans/profil.js',
   'js/ecrans/reglages.js',
   'js/ecrans/releve.js',
   'icons/icon-48.png',

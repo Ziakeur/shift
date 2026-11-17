@@ -8,7 +8,7 @@ import { rendreAccueil } from './ecrans/accueil.js';
 import { rendreJour } from './ecrans/jour.js';
 import { rendreSemaine } from './ecrans/semaine.js';
 import { rendrePaie } from './ecrans/paie.js';
-import { rendreCarnet } from './ecrans/carnet.js';
+import { rendreProfil, PAGES_PROFIL } from './ecrans/profil.js';
 import { rendreReglages, PAGES_REGLAGES } from './ecrans/reglages.js';
 import { rendreReleve } from './ecrans/releve.js';
 
@@ -17,10 +17,23 @@ const ECRANS = {
   jour: { rendre: rendreJour, defaut: () => aujourdhui() },
   semaine: { rendre: rendreSemaine, defaut: () => debutSemaine(aujourdhui()), normaliser: (d) => debutSemaine(d) },
   paie: { rendre: rendrePaie, defaut: () => debutSemaine(aujourdhui()), normaliser: (d) => debutSemaine(d) },
-  carnet: { rendre: rendreCarnet },
+  profil: { rendre: rendreProfil, pages: PAGES_PROFIL },
   reglages: { rendre: rendreReglages, pages: PAGES_REGLAGES },
   releve: { rendre: rendreReleve },
 };
+
+// Cinq onglets : Accueil, Shift (Jour et Semaine), Paie, Profil, Réglages (et le relevé, ouvert depuis Réglages).
+const ONGLET = { accueil: 'accueil', jour: 'shift', semaine: 'shift', paie: 'paie', profil: 'profil', reglages: 'reglages', releve: 'reglages' };
+
+// Adresses d'avant les cinq onglets (liens gardés, écran ouvert au moment d'une mise à jour) : envoyées au bon endroit.
+function redirigerAnciennes() {
+  const [, ecran, param] = location.hash.split('/');
+  let cible = null;
+  if (ecran === 'carnet') cible = '#/profil/carnet';
+  else if (ecran === 'reglages' && PAGES_PROFIL.includes(param)) cible = `#/profil/${param}`;
+  else if (ecran === 'reglages' && param === 'affichage') cible = '#/reglages';
+  if (cible) history.replaceState(null, '', cible);
+}
 
 const racine = document.getElementById('ecran');
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -45,6 +58,7 @@ function naviguer(ecran, param) {
 }
 
 function afficher() {
+  redirigerAnciennes();
   const { ecran, param } = lireRoute();
   const def = ECRANS[ecran];
   let p = param ?? def.defaut?.() ?? null;
@@ -63,15 +77,18 @@ function afficher() {
   dernier = { ecran, param: p };
   window.scrollTo(0, defilement);
 
-  // Les onglets Semaine et Paie suivent la date qu'on regarde.
+  // L'onglet Paie suit la semaine qu'on regarde. L'onglet Shift ouvre la saisie d'aujourd'hui,
+  // sauf si on arrive de la paie d'une autre semaine : il ouvre alors cette semaine-là.
   const dateCourante = p && DATE.test(p) ? p : aujourdhui();
+  const semaineRegardee = debutSemaine(dateCourante);
+  const ailleurs = ecran === 'paie' && semaineRegardee !== debutSemaine(aujourdhui());
   for (const a of document.querySelectorAll('.onglets a')) {
     const o = a.dataset.onglet;
-    const actif = o === ecran || (o === 'reglages' && ecran === 'releve');
+    const actif = o === ONGLET[ecran];
     a.classList.toggle('actif', actif);
     if (actif) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
-    if (o === 'semaine' || o === 'paie') a.href = `#/${o}/${debutSemaine(dateCourante)}`;
-    if (o === 'jour') a.href = ecran === 'jour' || !DATE.test(param ?? '') ? '#/jour' : `#/jour/${dateCourante}`;
+    if (o === 'paie') a.href = `#/paie/${semaineRegardee}`;
+    if (o === 'shift') a.href = ailleurs ? `#/semaine/${semaineRegardee}` : '#/jour';
   }
   majBandeau();
 }
@@ -81,6 +98,7 @@ function appliquerTheme() {
   const sombre = theme === 'sombre' || (theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = sombre ? 'sombre' : 'clair';
   document.documentElement.dataset.fond = etat.reglages.fond === 'uni' ? 'uni' : 'plan';
+  document.documentElement.dataset.accent = ['vert', 'bleu', 'violet'].includes(etat.reglages.accent) ? etat.reglages.accent : 'ambre';
   document.querySelector('meta[name="theme-color"]').content = sombre ? '#101214' : '#f4f2ec';
 }
 

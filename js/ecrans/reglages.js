@@ -1,4 +1,7 @@
-// Écran « Réglages » : un menu, puis une page par sujet (#/reglages/emploi, #/reglages/horaires…).
+// Écran « Réglages » : l'apparence et les préférences se changent en un appui sur la première page ;
+// le reste est un menu, puis une page par sujet (#/reglages/taux, #/reglages/sauvegarde…).
+// Les pages « Mon travail » (emploi, horaires, chantiers, primes) sont affichées par l'onglet Profil
+// (#/profil/emploi…) : ce fichier les dessine, avec `base = 'profil'`.
 // « Mon emploi » : chaque ligne (employeur, convention, échelon, taux…) se change séparément, à partir d'une date.
 
 import { etat, majReglages, nouvelId, exporterJSON, exporterCSV, importerJSON, validerSauvegarde, joursDepuisSauvegarde, aujourdhui } from '../etat.js';
@@ -19,11 +22,12 @@ const JOURS_COURTS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 
 // Les pages, dans l'ordre du menu. `resume` : ce qui est réglé en ce moment, affiché sous le titre.
 const GROUPES = [
-  { titre: 'Mon travail', pages: ['emploi', 'horaires', 'chantiers', 'primes'] },
   { titre: 'Règles de calcul', pages: ['taux', 'feries'] },
   { titre: 'Aide-mémoire', pages: ['convention'] },
-  { titre: 'Application', pages: ['affichage', 'verrou', 'sauvegarde', 'apropos'] },
+  { titre: 'Application', pages: ['verrou', 'sauvegarde', 'apropos'] },
 ];
+// Pages affichées dans l'onglet Profil.
+export const PAGES_TRAVAIL = ['emploi', 'horaires', 'chantiers', 'primes'];
 const TITRES = {
   emploi: 'Mon emploi',
   horaires: 'Mes horaires habituels',
@@ -32,12 +36,18 @@ const TITRES = {
   taux: 'Taux horaires',
   feries: 'Jours fériés',
   convention: 'Convention collective',
-  affichage: 'Affichage et semaine',
   verrou: 'Verrouillage par NIP',
   sauvegarde: 'Sauvegarde',
   apropos: 'À propos',
 };
-export const PAGES_REGLAGES = Object.keys(TITRES);
+export const PAGES_REGLAGES = Object.keys(TITRES).filter((p) => !PAGES_TRAVAIL.includes(p));
+export const titrePage = (page) => TITRES[page] ?? '';
+
+// Choix proposés sur la première page des réglages.
+const THEMES = [['sombre', 'Sombre'], ['clair', 'Clair'], ['auto', 'Automatique']];
+export const ACCENTS = [['ambre', 'Ambre'], ['vert', 'Vert'], ['bleu', 'Bleu'], ['violet', 'Violet']];
+const FONDS = [['plan', 'Plan de chantier'], ['uni', 'Uni']];
+const REGLABLES = ['theme', 'accent', 'fond', 'ecranOuverture', 'debutSemaine'];
 
 function nomConvention(p) {
   return `${SECTEURS[p.secteur]?.nom ?? p.secteur}${p.isole ? ', chantier isolé' : ''}`;
@@ -84,7 +94,7 @@ function texteUsage(u) {
   return `${u.nb} journées, du ${dateCourte(u.premier)} au ${dateCourte(u.dernier)}`;
 }
 
-function resumePage(page, auj) {
+export function resumePage(page, auj) {
   const r = etat.reglages;
   if (page === 'emploi') return resumeProfil(profilPourDate(r.profils, auj), auj);
   if (page === 'horaires') return r.modeles.length ? r.modeles.map((m) => m.nom).join(', ') : 'Aucun horaire enregistré';
@@ -93,15 +103,56 @@ function resumePage(page, auj) {
   if (page === 'taux') return 'Les grilles de salaire, avec leur date et leur source';
   if (page === 'feries') return `${pluriel(r.feries.length, 'date')} : heures majorées ces jours-là`;
   if (page === 'convention') return 'Heures, congés, frais, mises à pied : l\'essentiel de chaque secteur';
-  if (page === 'affichage') return `Thème ${r.theme === 'clair' ? 'clair' : r.theme === 'auto' ? 'comme le téléphone' : 'sombre'} · semaine de paie du ${r.debutSemaine === 1 ? 'lundi au dimanche' : 'dimanche au samedi'}`;
   if (page === 'verrou') return etat.verrou ? 'Activé : NIP demandé à l\'ouverture' : 'Désactivé';
   if (page === 'sauvegarde') return `Dernière sauvegarde : ${texteSauvegarde()}`;
   return `${APP.nom}, version ${APP.version}`;
 }
 
+// Un choix parmi quelques-uns, en un appui : la valeur en cours est marquée.
+function htmlChoix(cle, options, valeur, classe = '') {
+  return `<div class="choix ${classe}" role="group">${options.map(([v, nom]) => `
+    <button class="choix-case ${String(v) === String(valeur) ? 'actif' : ''}" data-regler="${cle}" data-valeur="${esc(v)}" aria-pressed="${String(v) === String(valeur)}">
+      <span class="apercu apercu-${cle} apercu-${esc(v)}" aria-hidden="true"></span><span>${esc(nom)}</span>
+    </button>`).join('')}</div>`;
+}
+
+function htmlApparence(r) {
+  const theme = THEMES.some(([v]) => v === r.theme) ? r.theme : 'sombre';
+  const accent = ACCENTS.some(([v]) => v === r.accent) ? r.accent : 'ambre';
+  return `
+    <section class="carte">
+      <h2>Apparence</h2>
+      <div class="champ"><span>Thème</span>${htmlChoix('theme', THEMES, theme)}
+        <small class="aide">Clair : plus lisible en plein soleil. Automatique : comme le téléphone.</small></div>
+      <div class="champ"><span>Couleur des boutons</span>${htmlChoix('accent', ACCENTS, accent, 'choix-4')}</div>
+      <div class="champ"><span>Fond de l'app</span>${htmlChoix('fond', FONDS, r.fond === 'uni' ? 'uni' : 'plan', 'choix-2')}</div>
+    </section>`;
+}
+
+function htmlPreferences(r) {
+  return `
+    <section class="carte">
+      <h2>Préférences</h2>
+      <div class="champ"><span>À l'ouverture, afficher</span>
+        ${htmlChoix('ecranOuverture', [['accueil', 'L\'accueil'], ['jour', 'La saisie du jour']], r.ecranOuverture === 'jour' ? 'jour' : 'accueil', 'choix-2 choix-texte')}</div>
+      <div class="champ"><span>Ma semaine de paie va du</span>
+        ${htmlChoix('debutSemaine', [[0, 'Dimanche au samedi'], [1, 'Lundi au dimanche']], r.debutSemaine === 1 ? 1 : 0, 'choix-2 choix-texte')}
+        <details><summary>Lequel choisir ?</summary>
+          <p class="aide">Ta semaine normale de travail reste du lundi au vendredi. Ce réglage décide dans quelle semaine tombent le samedi et le dimanche : les totaux de l'app suivent alors les mêmes dates que ton talon de paie, et les heures de fin de semaine sont comptées avec la bonne semaine.</p>
+          <p class="aide">Dans la construction, les semaines sont comptées du dimanche au samedi : c'est le découpage du rapport que l'employeur remet chaque mois à la CCQ. Si les dates de ton talon vont du lundi au dimanche, change ce réglage.</p>
+        </details></div>
+      <div class="champ"><span>Mes jours de travail habituels</span>
+        <div class="jours-cases">${JOURS_COURTS.map((l, i) => `<label class="jour-case"><input type="checkbox" name="jours-travail" value="${i}" ${r.joursTravail.includes(i) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
+        <small class="aide">L'accueil signale ces jours-là quand rien n'est noté (ni heures, ni motif « pas travaillé ») sur les deux dernières semaines. Aucun jour coché : pas de signalement.</small>
+      </div>
+    </section>`;
+}
+
 function htmlMenu(auj) {
   return `
-    <header class="entete"><div class="entete-titre"><strong>Réglages</strong><small>Touche une ligne pour voir ou changer</small></div></header>
+    <header class="entete"><div class="entete-titre"><strong>Réglages</strong><small>Ton emploi, tes horaires et tes chantiers sont dans l'onglet Profil</small></div></header>
+    ${htmlApparence(etat.reglages)}
+    ${htmlPreferences(etat.reglages)}
     ${GROUPES.map((g) => `
       <section class="menu-groupe">
         <h2 class="menu-titre">${esc(g.titre)}</h2>
@@ -115,11 +166,11 @@ function htmlMenu(auj) {
       </section>`).join('')}`;
 }
 
-function entetePage(page) {
+function entetePage(page, base) {
   return `
     <header class="entete">
-      <button class="btn-icone" data-act="retour" aria-label="Retour aux réglages">‹</button>
-      <div class="entete-titre"><strong>${esc(TITRES[page])}</strong><small>Réglages</small></div>
+      <button class="btn-icone" data-act="retour" aria-label="${base === 'profil' ? 'Retour au profil' : 'Retour aux réglages'}">‹</button>
+      <div class="entete-titre"><strong>${esc(TITRES[page])}</strong><small>${base === 'profil' ? 'Profil' : 'Réglages'}</small></div>
       <span class="entete-vide" aria-hidden="true"></span>
     </header>`;
 }
@@ -292,36 +343,6 @@ function htmlPage(page, auj) {
       <div class="puces">${[...r.feries].sort().map((d) => `<button class="puce" data-ferie="${d}">${esc(dateCourte(d))} ✕</button>`).join('')}</div>
       <div class="ligne-ajout"><input type="date" id="ferie-date" aria-label="Date à ajouter"><button class="btn" data-act="ferie-ajouter">Ajouter</button></div>
     </section>`;
-  if (page === 'affichage') return `
-    <section class="carte">
-      <label class="champ"><span>Thème</span><select id="theme">
-        <option value="sombre" ${r.theme === 'sombre' ? 'selected' : ''}>Sombre</option>
-        <option value="clair" ${r.theme === 'clair' ? 'selected' : ''}>Clair (plein soleil)</option>
-        <option value="auto" ${r.theme === 'auto' ? 'selected' : ''}>Comme le téléphone</option>
-      </select></label>
-      <label class="champ"><span>Fond de l'app</span><select id="fond">
-        <option value="plan" ${r.fond !== 'uni' ? 'selected' : ''}>Plan de chantier (quadrillage et charpente)</option>
-        <option value="uni" ${r.fond === 'uni' ? 'selected' : ''}>Uni, sans décor</option>
-      </select></label>
-      <label class="champ"><span>À l'ouverture, afficher</span><select id="ecran-ouverture">
-        <option value="accueil" ${r.ecranOuverture !== 'jour' ? 'selected' : ''}>L'accueil (gains, heures, historique)</option>
-        <option value="jour" ${r.ecranOuverture === 'jour' ? 'selected' : ''}>La saisie du jour (un appui de moins)</option>
-      </select></label>
-    </section>
-    <section class="carte">
-      <label class="champ"><span>Ma semaine de paie va du</span><select id="debut-semaine">
-        <option value="0" ${r.debutSemaine === 0 ? 'selected' : ''}>Dimanche au samedi</option>
-        <option value="1" ${r.debutSemaine === 1 ? 'selected' : ''}>Lundi au dimanche</option>
-      </select></label>
-      <p class="aide">Ta semaine normale de travail reste du lundi au vendredi. Ce réglage décide dans quelle semaine tombent le samedi et le dimanche : les totaux de l'app suivent alors les mêmes dates que ton talon de paie, et les heures de fin de semaine sont comptées avec la bonne semaine.</p>
-      <p class="aide">Dans la construction, les semaines sont comptées du dimanche au samedi : c'est le découpage du rapport que l'employeur remet chaque mois à la CCQ. Si les dates de ton talon vont du lundi au dimanche, change ce réglage.</p>
-    </section>
-    <section class="carte">
-      <div class="champ"><span>Mes jours de travail habituels</span>
-        <div class="jours-cases">${JOURS_COURTS.map((l, i) => `<label class="jour-case"><input type="checkbox" name="jours-travail" value="${i}" ${r.joursTravail.includes(i) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
-      </div>
-      <p class="aide">L'accueil signale ces jours-là quand rien n'est noté (ni heures, ni motif « pas travaillé ») sur les deux dernières semaines. Aucun jour coché : pas de signalement.</p>
-    </section>`;
   if (page === 'verrou') return `
     <section class="carte">
       <p><strong>${etat.verrou ? 'NIP activé.' : 'NIP désactivé.'}</strong> ${etat.verrou ? 'L\'app le demande à l\'ouverture, et quand tu y reviens après plus d\'une minute ailleurs.' : 'L\'app s\'ouvre directement.'}</p>
@@ -364,16 +385,17 @@ function htmlPage(page, auj) {
     </section>`;
 }
 
-export function rendreReglages(racine, param, naviguer) {
+// `base` : l'onglet qui affiche la page ('reglages', ou 'profil' pour les pages « Mon travail »).
+export function rendreReglages(racine, param, naviguer, base = 'reglages') {
   const r = etat.reglages;
   const auj = aujourdhui();
-  const page = TITRES[param] ? param : null;
+  const page = (base === 'profil' ? PAGES_TRAVAIL : PAGES_REGLAGES).includes(param) ? param : null;
   if (page !== 'convention') ongletConvention = null;
 
-  racine.innerHTML = page ? `${entetePage(page)}${htmlPage(page, auj)}` : htmlMenu(auj);
+  racine.innerHTML = page ? `${entetePage(page, base)}${htmlPage(page, auj)}` : htmlMenu(auj);
 
   const $ = (sel) => racine.querySelector(sel);
-  const rafraichir = () => naviguer('reglages', page);
+  const rafraichir = () => naviguer(base, page);
 
   if (page === 'sauvegarde' && navigator.storage?.persisted) {
     navigator.storage.persisted().then((ok) => {
@@ -692,7 +714,13 @@ export function rendreReglages(racine, param, naviguer) {
       ongletConvention = d.onglet;
       return rafraichir();
     }
-    if (d.act === 'retour') return naviguer('reglages');
+    if (d.act === 'retour') return naviguer(base);
+    if (d.regler && REGLABLES.includes(d.regler)) {
+      const valeur = d.regler === 'debutSemaine' ? Number(d.valeur) : d.valeur;
+      await majReglages((reg) => { reg[d.regler] = valeur; });
+      document.dispatchEvent(new CustomEvent('reglages-changes'));
+      return rafraichir();
+    }
     if (d.changer) return changer(d.changer);
     if (d.profil) return editerProfil(r.profils.find((p) => p.id === d.profil));
     if (d.grille) return editerGrille(etat.grilles.find((g) => cleGrille(g) === d.grille));
@@ -729,19 +757,7 @@ export function rendreReglages(racine, param, naviguer) {
 
   racine.onchange = async (ev) => {
     const t = ev.target;
-    if (t.id === 'theme') {
-      await majReglages((reg) => { reg.theme = t.value; });
-      document.dispatchEvent(new CustomEvent('reglages-changes'));
-    } else if (t.id === 'fond') {
-      await majReglages((reg) => { reg.fond = t.value; });
-      document.dispatchEvent(new CustomEvent('reglages-changes'));
-    } else if (t.id === 'ecran-ouverture') {
-      await majReglages((reg) => { reg.ecranOuverture = t.value; });
-      toast('Écran d\'ouverture modifié');
-    } else if (t.id === 'debut-semaine') {
-      await majReglages((reg) => { reg.debutSemaine = Number(t.value); });
-      toast('Découpage des semaines modifié');
-    } else if (t.name === 'jours-travail') {
+    if (t.name === 'jours-travail') {
       const jours = [...racine.querySelectorAll('input[name="jours-travail"]:checked')].map((i) => Number(i.value));
       await majReglages((reg) => { reg.joursTravail = jours; });
       toast('Jours de travail enregistrés');

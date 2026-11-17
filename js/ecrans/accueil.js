@@ -197,7 +197,7 @@ function htmlOublies(oublies) {
         ${oublies.map((o) => `<button class="puce" data-jour="${o.date}" aria-label="${esc(formatDate(o.date))}${o.incomplet ? ', heure de début ou de fin manquante' : ''}">${esc(`${nomJour(o.date, true)} ${Number(o.date.slice(8))} ${nomMois(o.date, true)}`)}${o.incomplet ? ' · incomplet' : ''}</button>`).join('')}
       </div>
       ${vides.length > 1 ? `<button class="btn btn-large" data-act="oublies-motif">Je n'ai pas travaillé ces ${vides.length} jours…</button>` : ''}
-      <p class="aide">Jours de travail habituels sans heures ni motif, sur les deux dernières semaines. Les jours se règlent dans Réglages, Affichage et semaine.</p>
+      <p class="aide">Jours de travail habituels sans heures ni motif, sur les deux dernières semaines. Les jours se règlent dans Réglages, Préférences.</p>
     </section>`;
 }
 

@@ -1,9 +1,9 @@
 # À faire
 
-État au 16 novembre 2026 : version 0.5.0 (verrou par NIP à 4 chiffres, décor) en ligne sur https://ziakeur.github.io/shift/, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
+État au 16 novembre 2026 : version 0.5.2 (aide-mémoire « Convention collective », mention de l'auteur) en ligne depuis le 17 novembre 2026 sur https://ziakeur.github.io/shift/, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
 Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAUDE.md`.
 
-## 0. Demande en cours (17 novembre 2026) : faite, non commitée, non publiée
+## 0. Fait le 17 novembre 2026 : version 0.5.2 en ligne (accord de l'utilisateur)
 - **Version 0.5.2** : mention « Idée originale et conception : Aurélien Vincent » et adresse de contact (`auteur`, `contact` dans `js/config.js`), dans Réglages, À propos seulement (choix de l'utilisateur, qui accepte que son nom soit public).
 - **Réglages, Aide-mémoire, « Convention collective »** (`js/convention.js`) : 4 onglets (résidentiel, IC, industriel, génie civil), s'ouvre sur le secteur du réglage en cours (★), 19 sujets repliables par secteur avec article et lien vers ccq.org. Taux repris de `GRILLES`. Textes lus le 17 novembre 2026 dans les conventions officielles ; chiffres clés recontrôlés dans le texte (déplacement, pension, repas, bottes et casque, préavis, présence).
 - Vérifié dans un Chromium de test au format téléphone (390 px) : pas de défilement de côté, onglets, sujets repliables, entrée du menu. Pas vu sur un vrai téléphone.

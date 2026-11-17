@@ -318,6 +318,20 @@ dialog.feuille::backdrop { background: rgb(0 0 0 / .6); }
 .sem-jour small { font-size: .68rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .segments { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.segments.segments-2 { grid-template-columns: repeat(2, 1fr); }
+
+/* Aide-mémoire de la convention : un sujet par ligne repliable */
+details.sujet { border-top: 1px solid var(--bord); }
+details.sujet:first-child { border-top: 0; }
+details.sujet > summary {
+  list-style: none; display: flex; align-items: center; gap: 8px; min-height: 48px;
+  color: inherit; font-size: 1rem; font-weight: 600;
+}
+details.sujet > summary::-webkit-details-marker { display: none; }
+details.sujet > summary::after { content: "＋"; margin-left: auto; color: var(--discret); font-weight: 400; }
+details.sujet[open] > summary::after { content: "−"; }
+.sujet-corps { display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; }
+.sujet-corps p { margin: 0; }
 .recap { display: flex; flex-direction: column; }
 .recap-ligne {
   display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left;

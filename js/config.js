@@ -4,6 +4,8 @@
 
 export const APP = {
   nom: 'Shift',
-  version: '0.5.0',
+  version: '0.5.2',
   mention: 'Application personnelle, non officielle. Aucun lien avec la Commission de la construction du Québec, les syndicats ou les associations patronales. Les montants sont des estimations : ton talon de paie et ton dossier officiel font foi.',
+  auteur: 'Aurélien Vincent',
+  contact: 'shiftapp.shallow002@passfwd.com',
 };

@@ -5,7 +5,8 @@ import { etat, majReglages, nouvelId, exporterJSON, exporterCSV, importerJSON, v
 import { APP } from '../config.js';
 import { ajouterJours, formatDate } from '../temps.js';
 import { tauxDuProfil, reglesDuProfil, profilPourDate, changerProfils } from '../calcul.js';
-import { SECTEURS, ECHELONS, GRILLES_MANQUANTES, PROCHAINE_HAUSSE, prereglage, cleGrille, VACANCES_PCT } from '../grilles.js';
+import { SECTEURS, ECHELONS, GRILLES_MANQUANTES, PROCHAINE_HAUSSE, prereglage, cleGrille, VACANCES_PCT, grillePourDate } from '../grilles.js';
+import { GROUPES_SUJETS, ONGLETS, CONVENTIONS, ongletPourSecteur } from '../convention.js';
 import { esc, argent, nombre, toast, formulaire, confirmer, telecharger, partager } from '../ui.js';
 import { activerNip, changerNip, desactiverNip } from '../nip.js';
 
@@ -19,6 +20,7 @@ const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
 const GROUPES = [
   { titre: 'Mon travail', pages: ['emploi', 'horaires', 'chantiers', 'primes'] },
   { titre: 'Règles de calcul', pages: ['taux', 'feries'] },
+  { titre: 'Aide-mémoire', pages: ['convention'] },
   { titre: 'Application', pages: ['affichage', 'verrou', 'sauvegarde', 'apropos'] },
 ];
 const TITRES = {
@@ -28,6 +30,7 @@ const TITRES = {
   primes: 'Primes et indemnités',
   taux: 'Taux horaires',
   feries: 'Jours fériés',
+  convention: 'Convention collective',
   affichage: 'Affichage et semaine',
   verrou: 'Verrouillage par NIP',
   sauvegarde: 'Sauvegarde',
@@ -88,6 +91,7 @@ function resumePage(page, auj) {
   if (page === 'primes') return r.primes.length ? r.primes.map((p) => p.nom).join(', ') : 'Aucune (pension, déplacement, équipement…)';
   if (page === 'taux') return 'Les grilles de salaire, avec leur date et leur source';
   if (page === 'feries') return `${pluriel(r.feries.length, 'date')} : heures majorées ces jours-là`;
+  if (page === 'convention') return 'Heures, congés, frais, mises à pied : l\'essentiel de chaque secteur';
   if (page === 'affichage') return `Thème ${r.theme === 'clair' ? 'clair' : r.theme === 'auto' ? 'comme le téléphone' : 'sombre'} · semaine de paie du ${r.debutSemaine === 1 ? 'lundi au dimanche' : 'dimanche au samedi'}`;
   if (page === 'verrou') return etat.verrou ? 'Activé : NIP demandé à l\'ouverture' : 'Désactivé';
   if (page === 'sauvegarde') return `Dernière sauvegarde : ${texteSauvegarde()}`;
@@ -202,6 +206,55 @@ function htmlGrilles() {
     </section>`;
 }
 
+// ----- Convention collective : aide-mémoire, un onglet par secteur -----
+// Onglet choisi pendant la visite de la page ; remis à zéro au retour au menu, pour rouvrir sur ton secteur.
+let ongletConvention = null;
+
+function htmlTauxOnglet(onglet, auj) {
+  const plusieurs = ONGLETS[onglet].secteurs.length > 1;
+  const lignes = ONGLETS[onglet].secteurs.map((s) => {
+    const nom = plusieurs ? `${SECTEURS[s].nom} : ` : '';
+    const g = grillePourDate(etat.grilles, s, false, auj);
+    if (!g) return `<p class="aide">${esc(nom)}taux à vérifier, aucune grille vérifiée à cette date.</p>`;
+    const { compagnon, app1, app2, app3 } = g.taux;
+    return `<p>${esc(nom)}compagnon <strong>${esc(argent(compagnon))}</strong> · app. 1 ${esc(argent(app1))} · app. 2 ${esc(argent(app2))} · app. 3 ${esc(argent(app3))} <small class="aide">depuis le ${esc(dateCourte(g.dateEffet))}</small></p>`;
+  });
+  return `${lignes.join('')}<p class="aide">Taux de l'heure, hors chantier isolé. <a href="#/reglages/taux">Toutes les grilles, avec leur source</a></p>`;
+}
+
+function htmlSujet(cle, titre, e, onglet, auj) {
+  const lu = e?.statut === 'lu';
+  const corps = e ? `
+      <p>${esc(e.texte)}</p>
+      ${e.note ? `<p class="aide">${esc(e.note)}</p>` : ''}
+      <p class="aide">Source : <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.articles)}</a></p>`
+    : '<p class="aide">Pas encore lu dans la convention : regarde le texte officiel ou demande à ton syndicat.</p>';
+  return `
+    <details class="sujet">
+      <summary>${esc(titre)}${lu ? '' : ' <span class="badge">à vérifier</span>'}</summary>
+      <div class="sujet-corps">${cle === 'salaire' ? htmlTauxOnglet(onglet, auj) : ''}${corps}</div>
+    </details>`;
+}
+
+function htmlConvention(auj) {
+  const actif = profilPourDate(etat.reglages.profils, auj);
+  const monOnglet = ongletPourSecteur(actif?.secteur);
+  const onglet = ONGLETS[ongletConvention] ? ongletConvention : monOnglet;
+  const textes = CONVENTIONS[onglet] ?? {};
+  return `
+    <section class="carte">
+      <div class="segments segments-2" role="group" aria-label="Secteur">
+        ${Object.entries(ONGLETS).map(([cle, o]) => `<button class="puce puce-petite ${cle === onglet ? 'actif' : ''}" data-onglet="${cle}" aria-pressed="${cle === onglet}">${esc(o.nom)}${cle === monOnglet ? ' ★' : ''}</button>`).join('')}
+      </div>
+      <p class="aide">★ : ton secteur, selon ton réglage en cours (${esc(nomConvention(actif))}). Conventions collectives 2025-2029, charpentier-menuisier : l'essentiel seulement. Le texte officiel fait foi : chaque point donne son article et un lien. Touche un sujet pour l'ouvrir.</p>
+    </section>
+    ${GROUPES_SUJETS.map((g) => `
+    <section class="carte">
+      <h2>${esc(g.titre)}</h2>
+      <div>${g.sujets.map(([cle, titre]) => htmlSujet(cle, titre, textes[cle], onglet, auj)).join('')}</div>
+    </section>`).join('')}`;
+}
+
 function htmlListe(items, attribut, ligne, vide) {
   if (!items.length) return `<p class="aide">${esc(vide)}</p>`;
   return `<div class="liste">${items.map((x) => `<button class="rangee" data-${attribut}="${esc(x.id)}"><span class="rangee-corps">${ligne(x)}</span><span class="chevron" aria-hidden="true">›</span></button>`).join('')}</div>`;
@@ -212,6 +265,7 @@ function htmlPage(page, auj) {
   const chantierNom = (id) => r.chantiers.find((c) => c.id === id)?.nom;
   if (page === 'emploi') return htmlEmploi(auj);
   if (page === 'taux') return htmlGrilles();
+  if (page === 'convention') return htmlConvention(auj);
   if (page === 'horaires') return `
     <section class="carte">
       <p class="aide">Un horaire habituel remplit une journée en un seul appui dans l'écran Jour. Les jours cochés servent à « Remplir la semaine ». Touche un horaire pour le modifier.</p>
@@ -294,6 +348,11 @@ function htmlPage(page, auj) {
       <p><strong>${esc(APP.nom)}</strong> · version ${esc(APP.version)}</p>
       <p class="aide">${esc(APP.mention)}</p>
       <p class="aide">Aucun compte, aucun serveur : rien ne quitte ce téléphone, sauf les fichiers que tu exportes toi-même.</p>
+    </section>
+    <section class="carte">
+      <p>Idée originale et conception : <strong>${esc(APP.auteur)}</strong></p>
+      <p class="aide">Une question, une idée d'ajout ou de modification ? Écris à
+        <a href="mailto:${esc(APP.contact)}?subject=${encodeURIComponent(APP.nom)}">${esc(APP.contact)}</a></p>
     </section>`;
 }
 
@@ -301,6 +360,7 @@ export function rendreReglages(racine, param, naviguer) {
   const r = etat.reglages;
   const auj = aujourdhui();
   const page = TITRES[param] ? param : null;
+  if (page !== 'convention') ongletConvention = null;
 
   racine.innerHTML = page ? `${entetePage(page)}${htmlPage(page, auj)}` : htmlMenu(auj);
 
@@ -619,6 +679,10 @@ export function rendreReglages(racine, param, naviguer) {
     if (!b) return;
     const d = b.dataset;
     if (d.page) return naviguer('reglages', d.page);
+    if (d.onglet) {
+      ongletConvention = d.onglet;
+      return rafraichir();
+    }
     if (d.act === 'retour') return naviguer('reglages');
     if (d.changer) return changer(d.changer);
     if (d.profil) return editerProfil(r.profils.find((p) => p.id === d.profil));

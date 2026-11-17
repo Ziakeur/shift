@@ -3,7 +3,14 @@
 État au 16 novembre 2026 : version 0.5.0 (verrou par NIP à 4 chiffres, décor) en ligne sur https://ziakeur.github.io/shift/, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
 Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAUDE.md`.
 
-## 0. En attente de l'avis de l'utilisateur
+## 0. Demande en cours (17 novembre 2026) : faite, non commitée, non publiée
+- **Version 0.5.2** : mention « Idée originale et conception : Aurélien Vincent » et adresse de contact (`auteur`, `contact` dans `js/config.js`), dans Réglages, À propos seulement (choix de l'utilisateur, qui accepte que son nom soit public).
+- **Réglages, Aide-mémoire, « Convention collective »** (`js/convention.js`) : 4 onglets (résidentiel, IC, industriel, génie civil), s'ouvre sur le secteur du réglage en cours (★), 19 sujets repliables par secteur avec article et lien vers ccq.org. Taux repris de `GRILLES`. Textes lus le 17 novembre 2026 dans les conventions officielles ; chiffres clés recontrôlés dans le texte (déplacement, pension, repas, bottes et casque, préavis, présence).
+- Vérifié dans un Chromium de test au format téléphone (390 px) : pas de défilement de côté, onglets, sujets repliables, entrée du menu. Pas vu sur un vrai téléphone.
+- **À vérifier, signalé dans l'app** : « Temps d'attente » en résidentiel, IC et industriel (aucun article trouvé).
+- **Doutes notés dans l'app, à lever si l'utilisateur le souhaite** : samedi en IC et industriel (pas de règle à part, traité comme heure supplémentaire ordinaire) ; gants de sécurité en IC et industriel (art. 25.05 1) et 4) b) se contredisent) ; 17 $ de repas pour une simple journée de 10 h en IC et industriel ; liste d'outils du génie civil (annexe I) et annexes de taux D non lues ; congés de maladie de la Loi sur les normes du travail (annexes M, Q, Z-10) non lus.
+
+## 0 bis. En attente de l'avis de l'utilisateur
 - **Version 0.5.0 en ligne** depuis le 16 novembre 2026, avec l'accord de l'utilisateur. Vérifié sur le site public dans un Chrome de test : passage 0.4.0 vers 0.5.0 par le bandeau « Mettre à jour », NIP hors ligne. Toute nouvelle publication demande de nouveau son accord.
 - **NIP** : testé dans un Chrome de test (activer, ouvrir, NIP faux, blocage après 5 essais, retour après une absence, NIP oublié, hors ligne). Pas testé sur un vrai téléphone : bouton retour d'Android sur l'écran du NIP, retour dans l'app après une minute.
 - **Fond** : la demande était « peut-être un fond en rapport avec la construction ». Fait : quadrillage de plan, ferme de toit sur l'accueil, ossature sur l'écran du NIP. À faire valider ; se coupe dans Réglages, Affichage et semaine.
@@ -34,5 +41,4 @@ Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAU
 - Taux 2027-2028 en institutionnel-commercial (annexes C et C-1) et en génie civil ; annexe D-1.
 - Poids d'une heure supplémentaire au carnet (hypothèse actuelle : 1 h = 1 h).
 - Date d'effet exacte des colonnes 2027 et 2028 des annexes résidentielles.
-- Numéro d'article de la semaine normale en institutionnel-commercial : `js/grilles.js` cite l'art. 20.03 4), la page de la section XX sur ccq.org a été résumée comme art. 20.02 1). Relire la page et corriger la source si besoin (le chiffre, 40 h du lundi au vendredi, ne change pas).
 - Semaine de paie : la CCQ compte les semaines du dimanche au samedi pour le rapport mensuel (guide PD5277F, lu le 16 novembre 2026). Que la paie de chaque employeur suive ce découpage n'est pas vérifié : l'utilisateur le voit sur son talon.

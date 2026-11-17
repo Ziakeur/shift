@@ -28,6 +28,7 @@ L'utilisateur n'est pas développeur : répondre en français, court et direct, 
 | `js/config.js` | Nom, version, mention non officielle |
 | `js/temps.js` | Dates, durées, quart qui passe minuit, changement d'heure (pur) |
 | `js/grilles.js` | Grilles de taux sourcées, préréglages d'heures supplémentaires, fériés, règles du carnet |
+| `js/convention.js` | Aide-mémoire des conventions collectives par secteur (Réglages, Convention collective) : textes lus avec article et lien, statut « à vérifier » sinon |
 | `js/calcul.js` | Répartition simple / majoré, paie de la semaine, primes (pur) |
 | `js/carnet.js` | Périodes d'apprentissage, estimation, période du rapport mensuel (pur) |
 | `js/recap.js` | Totaux par semaine, mois et année, jalons et ligne du temps de l'accueil (pur) |

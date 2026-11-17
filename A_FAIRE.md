@@ -1,14 +1,14 @@
 # À faire
 
-État au 17 novembre 2026 : **version 0.7.0 prête sur ce PC, ni commitée ni publiée** (voir section 00) ; version 0.6.0 en ligne (voir section 0) ; avant elle, version 0.5.2 (aide-mémoire « Convention collective », mention de l'auteur) en ligne depuis le 17 novembre 2026 sur https://ziakeur.github.io/shift/, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
+État au 17 novembre 2026 : version 0.7.0 en ligne (voir section 00) ; avant elle, version 0.6.0 (voir section 0) ; avant elle, version 0.5.2 (aide-mémoire « Convention collective », mention de l'auteur) en ligne depuis le 17 novembre 2026 sur https://ziakeur.github.io/shift/, nom « Shift ». Faits : lots 1 à 3, sélection rapide, boutons pour effacer, accueil avec courbes lissées et lecture au doigt, réglages repensés, icône tirée de l'image fournie, chantiers sans « en cours / terminé », réglage « Ma semaine de paie va du ».
 Cocher et retirer les lignes au fur et à mesure. Règles du projet : voir `CLAUDE.md`.
 
-## 00. Version 0.7.0 : faite le 17 novembre 2026, à faire valider puis publier
+## 00. Version 0.7.0 en ligne le 17 novembre 2026 (accord de l'utilisateur)
 - Demandée par l'utilisateur : estimation du régime d'assurance selon les heures avec la période couverte ; cinq onglets (Accueil, Shift, Paie, Profil, Réglages) ; Shift = Jour avec bascule vers Semaine ; Paie au milieu, un peu plus grand ; Profil = « Mon travail » des réglages et assurance ; Réglages allégés, couleurs, fond et préférences plus faciles.
 - **Choix faits sans demande, à confirmer** : le carnet d'apprentissage est passé dans Profil (son onglet disparaît) ; choix de la couleur des boutons (ambre, vert, bleu, violet) ; sur l'écran Semaine, une ligne « Salaire brut estimé » qui ouvre la paie ; l'ancienne page « Affichage et semaine » est remplacée par les cartes « Apparence » et « Préférences » de la première page des réglages ; carte MÉDIC facultative (régime, réserve) pour tenir compte de la réserve.
 - Assurance : seuils et dates lus sur ccq.org (page « Assurance de base ») le 17 novembre 2026. Non lu : conditions d'une première assurance. Voir « Limites connues » dans `CLAUDE.md`.
 - Vérifié dans un Chrome de test au format téléphone (390 px), données fictives : les cinq onglets, Profil, Mon assurance, carte avec réserve, Réglages (thème clair, couleur, fond, semaine de paie), bascule Jour / Semaine, anciennes adresses redirigées, aucun défilement de côté, aucune erreur. Mise à jour 0.6.0 vers 0.7.0 par le bandeau : données intactes, écran « Carnet » rouvert dans Profil ; ouverture sans réseau.
-- Pas vu sur un vrai téléphone. Avant de publier : commit, puis `git push` avec l'accord de l'utilisateur.
+- Publiée le 17 novembre 2026 : le site public sert la version 0.7.0 (`js/config.js` et `sw.js`), les nouveaux fichiers et les cinq onglets. Pas vu sur un vrai téléphone. Toute nouvelle publication demande de nouveau l'accord de l'utilisateur.
 
 ## 0. Version 0.6.0 en ligne le 17 novembre 2026 (accord de l'utilisateur)
 - Demandée par l'utilisateur (propositions 2, 5, 6, 7) : jours oubliés et motif « pas travaillé », primes à cocher par jour, relevé imprimable en PDF, paies de vacances par semestre (écran Paie).
